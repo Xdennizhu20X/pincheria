@@ -4,14 +4,25 @@ import { INITIAL_PRODUCTS } from "../src/lib/constants";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Iniciando sembrado de productos del menú...");
+  console.log("Actualizando productos con las imágenes reales...");
 
   for (const prod of INITIAL_PRODUCTS) {
     const existing = await prisma.product.findFirst({
       where: { name: prod.name },
     });
 
-    if (!existing) {
+    if (existing) {
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          imageUrl: prod.imageUrl,
+          description: prod.description,
+          price: prod.price,
+          hasAccompaniments: prod.hasAccompaniments,
+        },
+      });
+      console.log(`✓ Actualizado: ${prod.name} -> ${prod.imageUrl}`);
+    } else {
       await prisma.product.create({
         data: {
           name: prod.name,
@@ -25,13 +36,11 @@ async function main() {
           isActive: true,
         },
       });
-      console.log(`+ Creado: ${prod.name} ($${prod.price.toFixed(2)})`);
-    } else {
-      console.log(`= Ya existe: ${prod.name}`);
+      console.log(`+ Creado: ${prod.name}`);
     }
   }
 
-  console.log("¡Sembrado completado con éxito!");
+  console.log("¡Productos actualizados con éxito!");
 }
 
 main()

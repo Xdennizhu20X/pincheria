@@ -7,12 +7,9 @@ import {
   CheckCircle2, 
   RefreshCw, 
   Flame, 
-  AlertCircle, 
-  Utensils, 
-  Sparkles 
+  Utensils 
 } from "lucide-react";
 import { toast } from "sonner";
-import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { dispatchOrder, getKitchenOrders } from "@/app/actions/orders";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -50,7 +47,6 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
   const [now, setNow] = useState<number>(Date.now());
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Actualizar temporizadores cada minuto
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(Date.now());
@@ -58,12 +54,10 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Polling automático cada 6 segundos para recibir nuevos pedidos en cocina
   useEffect(() => {
     const pollInterval = setInterval(async () => {
       try {
         const fresh = await getKitchenOrders();
-        // Convertir strings de fechas a objetos Date
         const parsed = fresh.map((o) => ({
           ...o,
           createdAt: new Date(o.createdAt),
@@ -87,7 +81,7 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
           createdAt: new Date(o.createdAt),
         }))
       );
-      toast.info("Comandas actualizadas");
+      toast.info("Comandas de cocina sincronizadas");
     } finally {
       setIsRefreshing(false);
     }
@@ -95,7 +89,6 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
 
   const handleDispatch = async (orderId: string, orderNumber: number) => {
     try {
-      // Feedback visual inmediato
       const card = document.getElementById(`order-card-${orderId}`);
       if (card) {
         gsap.to(card, {
@@ -125,7 +118,6 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
     }
   };
 
-  // Resumen de pinchos pendientes en el asador
   const totalPinchosOnGrill = orders.reduce((sum, order) => {
     return (
       sum +
@@ -136,18 +128,18 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
   }, 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-28 max-w-md mx-auto sm:max-w-lg md:max-w-xl">
+    <div className="min-h-screen bg-black text-zinc-100 pb-28 max-w-md mx-auto sm:max-w-lg md:max-w-xl">
       {/* Header Cocina KDS */}
-      <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-black">
-            <ChefHat className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20">
+            <ChefHat className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="font-black text-slate-100 text-base leading-tight">
+            <h1 className="font-black text-white text-base leading-tight">
               Cocina & Asador (KDS)
             </h1>
-            <p className="text-[11px] font-semibold text-amber-400">
+            <p className="text-[11px] font-bold text-amber-400">
               {orders.length} comandas en preparación
             </p>
           </div>
@@ -156,32 +148,32 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
         <button
           type="button"
           onClick={handleManualRefresh}
-          className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white active:scale-95 transition-transform flex items-center gap-1.5 text-xs font-bold"
+          className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white active:scale-95 transition-transform flex items-center gap-1.5 text-xs font-bold"
         >
           <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-amber-400")} />
           <span>Actualizar</span>
         </button>
       </header>
 
-      {/* KPI Rápido para el Asador */}
+      {/* KPI del Asador (Brasas activas) */}
       <div className="p-3.5">
-        <div className="p-3.5 bg-gradient-to-r from-amber-950/40 via-orange-950/30 to-slate-900 rounded-2xl border border-amber-800/40 flex items-center justify-between">
+        <div className="p-3.5 bg-gradient-to-r from-orange-950/40 via-red-950/30 to-zinc-950 rounded-3xl border border-orange-500/30 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
               <Flame className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300/80 block">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-300/80 block">
                 Total de Pinchos al Fuego
               </span>
-              <span className="text-xl font-black text-white">
+              <span className="text-xl font-black text-white tracking-tight">
                 {totalPinchosOnGrill} unidades
               </span>
             </div>
           </div>
 
           <div className="text-right">
-            <span className="text-[11px] text-slate-400 block">En cola</span>
+            <span className="text-[10px] text-zinc-400 font-bold block">En cola</span>
             <span className="text-sm font-black text-amber-400">
               {orders.length} mesas
             </span>
@@ -192,14 +184,14 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
       {/* Lista de Comandas Cronológicas (FIFO) */}
       <div ref={containerRef} className="px-3.5 space-y-3.5">
         {orders.length === 0 ? (
-          <div className="py-16 text-center bg-slate-900/60 rounded-3xl border border-slate-800 p-6">
-            <div className="w-14 h-14 rounded-2xl bg-slate-800 text-slate-500 mx-auto flex items-center justify-center mb-3">
+          <div className="py-16 text-center bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 text-zinc-600 mx-auto flex items-center justify-center mb-3">
               <ChefHat className="w-7 h-7" />
             </div>
-            <h3 className="font-extrabold text-slate-200 text-base">
+            <h3 className="font-extrabold text-zinc-200 text-base">
               ¡Sin comandas pendientes!
             </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+            <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
               Los nuevos pedidos que envíen los meseros aparecerán aquí de forma automática.
             </p>
           </div>
@@ -209,7 +201,6 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
               (now - new Date(order.createdAt).getTime()) / (1000 * 60)
             );
 
-            // Badge de urgencia por tiempo
             let timerColor = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
             if (minutesElapsed >= 15) {
               timerColor = "bg-rose-500/25 text-rose-300 border-rose-500/60 animate-pulse";
@@ -221,19 +212,19 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
               <div
                 key={order.id}
                 id={`order-card-${order.id}`}
-                className="bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-lg transition-all"
+                className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-xl"
               >
                 {/* Cabecera de la comanda */}
-                <div className="p-3.5 bg-slate-850 border-b border-slate-800 flex items-center justify-between">
+                <div className="p-3.5 bg-zinc-900/80 border-b border-zinc-800 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-lg bg-orange-500 text-white font-black text-xs flex items-center justify-center">
+                    <span className="w-7 h-7 rounded-lg bg-orange-500 text-white font-black text-xs flex items-center justify-center shadow-sm">
                       #{index + 1}
                     </span>
                     <div>
                       <h2 className="font-black text-base text-white tracking-tight leading-none">
                         {order.tableNumber}
                       </h2>
-                      <span className="text-[11px] font-medium text-slate-400 mt-0.5 inline-block">
+                      <span className="text-[11px] font-semibold text-zinc-400 mt-0.5 inline-block">
                         Comanda #{order.orderNumber}
                       </span>
                     </div>
@@ -252,43 +243,41 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
                   </div>
                 </div>
 
-                {/* Cliente / Referencia si existe */}
                 {order.customerName && (
-                  <div className="px-4 py-1.5 bg-slate-950/40 border-b border-slate-800/60 text-xs text-slate-400">
-                    Cliente: <span className="font-bold text-slate-200">{order.customerName}</span>
+                  <div className="px-4 py-1.5 bg-black/40 border-b border-zinc-850 text-xs text-zinc-400">
+                    Cliente: <span className="font-bold text-zinc-200">{order.customerName}</span>
                   </div>
                 )}
 
                 {/* Lista de platos a preparar */}
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-2.5">
                   {order.items.map((item) => (
                     <div
                       key={item.id}
-                      className="p-3 bg-slate-950/70 rounded-2xl border border-slate-800/80 flex items-start gap-3"
+                      className="p-3 bg-zinc-900/70 rounded-2xl border border-zinc-800/80 flex items-start gap-3"
                     >
-                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-400 font-black text-sm flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-xl bg-orange-500/20 text-orange-400 font-black text-sm flex items-center justify-center shrink-0 mt-0.5 border border-orange-500/30">
                         {item.quantity}x
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-extrabold text-slate-100 text-sm leading-snug">
+                        <h3 className="font-extrabold text-white text-xs sm:text-sm leading-snug">
                           {item.productName}
                         </h3>
 
-                        {/* Acompañamiento destacado */}
                         {item.accompaniment ? (
-                          <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
+                          <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
                             <Utensils className="w-3 h-3 text-amber-400 shrink-0" />
                             <span>Servir con: {item.accompaniment}</span>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-slate-400 block mt-0.5">
-                            Bebida / Sin guarnición
+                          <span className="text-[11px] text-zinc-400 block mt-0.5">
+                            Bebida helada
                           </span>
                         )}
 
                         {item.notes && (
-                          <p className="text-xs text-rose-300/90 font-medium italic mt-1 bg-rose-950/30 px-2 py-0.5 rounded border border-rose-800/40 inline-block">
+                          <p className="text-xs text-rose-300 font-medium italic mt-1 bg-rose-950/30 px-2 py-0.5 rounded border border-rose-800/40 inline-block">
                             Nota: {item.notes}
                           </p>
                         )}
@@ -304,12 +293,12 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
                   )}
                 </div>
 
-                {/* Botón de Despacho (Cocina -> Caja) */}
-                <div className="p-3.5 bg-slate-850 border-t border-slate-800">
+                {/* Botón de Despacho */}
+                <div className="p-3.5 bg-zinc-900/60 border-t border-zinc-800">
                   <button
                     type="button"
                     onClick={() => handleDispatch(order.id, order.orderNumber)}
-                    className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2"
+                    className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2"
                   >
                     <CheckCircle2 className="w-5 h-5" />
                     <span>Despachar Comanda (Mover a Cobro)</span>
@@ -321,7 +310,6 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
         )}
       </div>
 
-      {/* Navegación móvil */}
       <BottomNav />
     </div>
   );

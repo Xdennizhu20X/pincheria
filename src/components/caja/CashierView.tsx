@@ -10,10 +10,9 @@ import {
   CreditCard, 
   QrCode, 
   X, 
-  ArrowRight,
-  Clock,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Flame
 } from "lucide-react";
 import { toast } from "sonner";
 import { markOrderAsPaid, getCashierOrders } from "@/app/actions/orders";
@@ -55,7 +54,6 @@ export function CashierView({ initialOrders }: CashierViewProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Polling automático cada 6 segundos para traer pedidos despachados
   useEffect(() => {
     const pollInterval = setInterval(async () => {
       try {
@@ -86,7 +84,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
           dispatchedAt: o.dispatchedAt ? new Date(o.dispatchedAt) : null,
         }))
       );
-      toast.info("Caja actualizada");
+      toast.info("Caja sincronizada");
     } finally {
       setIsRefreshing(false);
     }
@@ -152,19 +150,19 @@ export function CashierView({ initialOrders }: CashierViewProps) {
   const totalPendingAmount = orders.reduce((sum, o) => sum + o.total, 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-28 max-w-md mx-auto sm:max-w-lg md:max-w-xl">
+    <div className="min-h-screen bg-black text-zinc-100 pb-28 max-w-md mx-auto sm:max-w-lg md:max-w-xl">
       {/* Header Caja Móvil */}
-      <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-black">
-            <CircleDollarSign className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-black shadow-lg shadow-emerald-500/20">
+            <CircleDollarSign className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="font-black text-slate-100 text-base leading-tight">
+            <h1 className="font-black text-white text-base leading-tight">
               Caja & Cobro
             </h1>
-            <p className="text-[11px] font-semibold text-emerald-400">
-              {orders.length} mesas pendientes por cobrar
+            <p className="text-[11px] font-bold text-emerald-400">
+              {orders.length} mesas listas por cobrar
             </p>
           </div>
         </div>
@@ -172,29 +170,29 @@ export function CashierView({ initialOrders }: CashierViewProps) {
         <button
           type="button"
           onClick={handleManualRefresh}
-          className="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white active:scale-95 transition-transform flex items-center gap-1.5 text-xs font-bold"
+          className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white active:scale-95 transition-transform flex items-center gap-1.5 text-xs font-bold"
         >
           <RefreshCw className={cn("w-3.5 h-3.5", isRefreshing && "animate-spin text-emerald-400")} />
           <span>Actualizar</span>
         </button>
       </header>
 
-      {/* Resumen de Cuentas por Cobrar */}
+      {/* Resumen Total Pendiente */}
       <div className="p-3.5">
-        <div className="p-3.5 bg-gradient-to-r from-emerald-950/40 via-teal-950/30 to-slate-900 rounded-2xl border border-emerald-800/40 flex items-center justify-between">
+        <div className="p-3.5 bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-950 rounded-3xl border border-emerald-500/30 flex items-center justify-between shadow-lg">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300/80 block">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300/80 block">
               Total Pendiente por Cobrar
             </span>
-            <span className="text-xl font-black text-white">
+            <span className="text-2xl font-black text-white">
               {formatCurrency(totalPendingAmount)}
             </span>
           </div>
 
           <div className="text-right">
-            <span className="text-[11px] text-slate-400 block">Cuentas activas</span>
+            <span className="text-[10px] text-zinc-400 font-bold block">Por pagar</span>
             <span className="text-sm font-black text-emerald-400">
-              {orders.length} mesas listas
+              {orders.length} mesas
             </span>
           </div>
         </div>
@@ -203,28 +201,28 @@ export function CashierView({ initialOrders }: CashierViewProps) {
       {/* Buscador de Mesas */}
       <div className="px-3.5 mb-3">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por mesa, comanda o cliente..."
-            className="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:border-emerald-500"
+            placeholder="Buscar mesa o comanda..."
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-hidden focus:border-emerald-500"
           />
         </div>
       </div>
 
-      {/* Lista de Pedidos Despachados (Listos para Pagar) */}
+      {/* Lista de Pedidos Despachados */}
       <div className="px-3.5 space-y-3">
         {filteredOrders.length === 0 ? (
-          <div className="py-16 text-center bg-slate-900/60 rounded-3xl border border-slate-800 p-6">
-            <div className="w-14 h-14 rounded-2xl bg-slate-800 text-slate-500 mx-auto flex items-center justify-center mb-3">
+          <div className="py-16 text-center bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6">
+            <div className="w-14 h-14 rounded-2xl bg-zinc-900 text-zinc-600 mx-auto flex items-center justify-center mb-3">
               <Receipt className="w-7 h-7" />
             </div>
-            <h3 className="font-extrabold text-slate-200 text-base">
+            <h3 className="font-extrabold text-zinc-200 text-base">
               Sin cuentas pendientes
             </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+            <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
               Cuando la cocina termine y despache un pedido, aparecerá inmediatamente aquí para su cobro.
             </p>
           </div>
@@ -232,40 +230,40 @@ export function CashierView({ initialOrders }: CashierViewProps) {
           filteredOrders.map((order) => (
             <div
               key={order.id}
-              className="p-4 bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl shadow-sm space-y-3 transition-all"
+              className="p-4 bg-zinc-950 border border-zinc-800 hover:border-emerald-500/50 rounded-3xl shadow-lg space-y-3 transition-all"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-black text-lg text-white">
                     {order.tableNumber}
                   </h3>
-                  <p className="text-xs font-semibold text-slate-400">
+                  <p className="text-xs font-bold text-zinc-400">
                     Comanda #{order.orderNumber}
                     {order.customerName && ` • ${order.customerName}`}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-lg font-black text-emerald-400 block">
+                  <span className="text-lg font-black text-amber-400 block">
                     {formatCurrency(order.total)}
                   </span>
-                  <span className="text-[10px] font-semibold text-slate-400">
+                  <span className="text-[10px] font-bold text-zinc-500">
                     {order.items.reduce((s, i) => s + i.quantity, 0)} items
                   </span>
                 </div>
               </div>
 
               {/* Vista preliminar de items */}
-              <div className="p-2.5 bg-slate-950/60 rounded-xl space-y-1 text-xs">
+              <div className="p-3 bg-zinc-900/80 rounded-2xl space-y-1.5 text-xs border border-zinc-800/80">
                 {order.items.map((it) => (
-                  <div key={it.id} className="flex items-center justify-between text-slate-300">
+                  <div key={it.id} className="flex items-center justify-between text-zinc-300">
                     <span className="line-clamp-1">
                       <strong className="text-orange-400">{it.quantity}x</strong> {it.productName}
                       {it.accompaniment && (
-                        <span className="text-slate-400 text-[11px]"> ({it.accompaniment})</span>
+                        <span className="text-zinc-400 text-[11px]"> ({it.accompaniment})</span>
                       )}
                     </span>
-                    <span className="font-bold text-slate-400 shrink-0 ml-2">
+                    <span className="font-bold text-zinc-400 shrink-0 ml-2">
                       {formatCurrency(it.unitPrice * it.quantity)}
                     </span>
                   </div>
@@ -276,7 +274,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
               <button
                 type="button"
                 onClick={() => handleOpenPayment(order)}
-                className="w-full py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white font-extrabold text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
               >
                 <CircleDollarSign className="w-4 h-4" />
                 <span>Cobrar Cuenta • {formatCurrency(order.total)}</span>
@@ -288,22 +286,22 @@ export function CashierView({ initialOrders }: CashierViewProps) {
 
       {/* Modal / Bottom Sheet de Cobro con Calculadora de Vuelto */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-xs p-0 sm:p-4">
-          <div className="w-full max-w-md bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[95vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[95vh] flex flex-col animate-in slide-in-from-bottom duration-200">
             {/* Header del Cobro */}
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
                   Cobro de Mesa
                 </span>
-                <h2 className="font-black text-slate-100 text-lg">
+                <h2 className="font-black text-white text-lg">
                   {selectedOrder.tableNumber} (Comanda #{selectedOrder.orderNumber})
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center active:scale-90"
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center active:scale-90 border border-zinc-800"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -312,18 +310,18 @@ export function CashierView({ initialOrders }: CashierViewProps) {
             {/* Contenido del Cobro */}
             <div className="p-4 overflow-y-auto space-y-4">
               {/* Total destacado */}
-              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-center">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              <div className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 text-center">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">
                   Total a Cobrar
                 </span>
-                <span className="text-3xl font-black text-emerald-400">
+                <span className="text-3xl font-black text-amber-400">
                   {formatCurrency(selectedOrder.total)}
                 </span>
               </div>
 
               {/* Selector de Método de Pago */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-2">
                   Método de Pago:
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -331,10 +329,10 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                     type="button"
                     onClick={() => setPaymentMethod("EFECTIVO")}
                     className={cn(
-                      "py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 border transition-all active:scale-95",
+                      "py-2.5 px-2 rounded-2xl text-xs font-black flex flex-col items-center gap-1 border transition-all active:scale-95",
                       paymentMethod === "EFECTIVO"
                         ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                        : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
                     )}
                   >
                     <Banknote className="w-5 h-5" />
@@ -345,10 +343,10 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                     type="button"
                     onClick={() => setPaymentMethod("TRANSFERENCIA")}
                     className={cn(
-                      "py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 border transition-all active:scale-95",
+                      "py-2.5 px-2 rounded-2xl text-xs font-black flex flex-col items-center gap-1 border transition-all active:scale-95",
                       paymentMethod === "TRANSFERENCIA"
                         ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                        : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
                     )}
                   >
                     <QrCode className="w-5 h-5" />
@@ -359,10 +357,10 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                     type="button"
                     onClick={() => setPaymentMethod("TARJETA")}
                     className={cn(
-                      "py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 border transition-all active:scale-95",
+                      "py-2.5 px-2 rounded-2xl text-xs font-black flex flex-col items-center gap-1 border transition-all active:scale-95",
                       paymentMethod === "TARJETA"
                         ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm"
-                        : "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
                     )}
                   >
                     <CreditCard className="w-5 h-5" />
@@ -371,19 +369,19 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                 </div>
               </div>
 
-              {/* Calculadora de Vuelto para Efectivo */}
+              {/* Calculadora de Vuelto */}
               {paymentMethod === "EFECTIVO" && (
-                <div className="space-y-3 p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
-                  <label className="text-xs font-bold text-slate-300 block">
+                <div className="space-y-3 p-3.5 bg-zinc-900/90 rounded-2xl border border-zinc-800">
+                  <label className="text-xs font-bold text-zinc-300 block">
                     ¿Con cuánto paga el cliente?
                   </label>
 
-                  {/* Botones de billetes comunes en Ecuador */}
+                  {/* Botones de billetes comunes */}
                   <div className="grid grid-cols-4 gap-1.5">
                     <button
                       type="button"
                       onClick={() => handleQuickCash(selectedOrder.total)}
-                      className="py-1.5 px-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 hover:border-emerald-500"
+                      className="py-1.5 px-1 rounded-xl bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 hover:border-emerald-500"
                     >
                       Exacto
                     </button>
@@ -392,7 +390,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                         key={val}
                         type="button"
                         onClick={() => handleQuickCash(val)}
-                        className="py-1.5 px-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 hover:border-emerald-500"
+                        className="py-1.5 px-1 rounded-xl bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 hover:border-emerald-500"
                       >
                         ${val}.00
                       </button>
@@ -400,7 +398,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                   </div>
 
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 font-bold">
                       $
                     </span>
                     <input
@@ -409,13 +407,13 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                       value={amountReceived}
                       onChange={(e) => setAmountReceived(e.target.value)}
                       placeholder="0.00"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-4 py-2 text-base font-extrabold text-white focus:outline-hidden focus:border-emerald-500"
+                      className="w-full bg-black border border-zinc-700 rounded-xl pl-8 pr-4 py-2 text-base font-black text-white focus:outline-hidden focus:border-emerald-500"
                     />
                   </div>
 
-                  {/* Vuelto calculado en grande */}
-                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400">
+                  {/* Vuelto */}
+                  <div className="p-3 bg-black rounded-xl border border-zinc-800 flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-400">
                       Vuelto a entregar:
                     </span>
                     <span
@@ -434,12 +432,12 @@ export function CashierView({ initialOrders }: CashierViewProps) {
             </div>
 
             {/* Botón de Confirmar Pago */}
-            <div className="p-4 border-t border-slate-800 bg-slate-900/95">
+            <div className="p-4 border-t border-zinc-800 bg-zinc-950">
               <button
                 type="button"
                 disabled={isProcessing || (paymentMethod === "EFECTIVO" && !isExactOrMore)}
                 onClick={handleConfirmPayment}
-                className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-extrabold text-base shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isProcessing ? (
                   <Sparkles className="w-5 h-5 animate-spin" />
@@ -449,7 +447,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                 <span>
                   {isProcessing
                     ? "Registrando Pago..."
-                    : `Cobrar ${formatCurrency(selectedOrder.total)} y Enviar a Historial`}
+                    : `Cobrar ${formatCurrency(selectedOrder.total)} y Finalizar`}
                 </span>
               </button>
             </div>
@@ -457,7 +455,6 @@ export function CashierView({ initialOrders }: CashierViewProps) {
         </div>
       )}
 
-      {/* Navegación móvil */}
       <BottomNav />
     </div>
   );

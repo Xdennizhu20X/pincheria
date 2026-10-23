@@ -1,9 +1,18 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Plus, Flame, GlassWater, Sparkles, UtensilsCrossed } from "lucide-react";
+import React, { useState } from "react";
+import { 
+  Plus, 
+  Flame, 
+  GlassWater, 
+  Sparkles, 
+  UtensilsCrossed, 
+  Search,
+  Clock,
+  Table2
+} from "lucide-react";
 import { toast } from "sonner";
-import { ProductIcon } from "@/components/ui/ProductIcon";
+import { ProductImage } from "@/components/ui/ProductImage";
 import { formatCurrency, cn } from "@/lib/utils";
 import { AccompanimentModal } from "./AccompanimentModal";
 import { CartDrawer, CartItem } from "./CartDrawer";
@@ -16,6 +25,7 @@ interface Product {
   subCategory: string | null;
   price: number;
   description: string | null;
+  imageUrl: string | null;
   hasAccompaniments: boolean;
   sortOrder: number;
 }
@@ -25,31 +35,43 @@ interface WaiterViewProps {
 }
 
 export function WaiterView({ products }: WaiterViewProps) {
-  const [selectedCategory, setSelectedCategory] = useState<"PINCHO" | "BEBIDA">("PINCHO");
+  const [selectedCategory, setSelectedCategory] = useState<"TODOS" | "PINCHO" | "BEBIDA">("PINCHO");
   const [selectedDrinkSize, setSelectedDrinkSize] = useState<string>("TODAS");
+  const [searchQuery, setSearchQuery] = useState("");
   const [tableNumber, setTableNumber] = useState<string>("Mesa 1");
   const [customerName, setCustomerName] = useState<string>("");
   
-  // Carrito de compras del mesero
+  // Carrito de compras
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   
-  // Modal de guarnición/acompañamiento para pinchos
+  // Modal de guarnición para pinchos
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
 
   // Filtrado de productos
-  const pinchos = products.filter((p) => p.category === "PINCHO");
-  const bebidas = products.filter((p) => p.category === "BEBIDA");
-
-  const displayedBebidas = bebidas.filter((b) => {
-    if (selectedDrinkSize === "TODAS") return true;
-    return b.subCategory === selectedDrinkSize;
+  const filteredProducts = products.filter((prod) => {
+    // Categoría
+    if (selectedCategory !== "TODOS" && prod.category !== selectedCategory) {
+      return false;
+    }
+    // Subcategoría de bebidas
+    if (selectedCategory === "BEBIDA" && selectedDrinkSize !== "TODAS") {
+      if (prod.subCategory !== selectedDrinkSize) return false;
+    }
+    // Buscador
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        prod.name.toLowerCase().includes(q) ||
+        (prod.description && prod.description.toLowerCase().includes(q))
+      );
+    }
+    return true;
   });
 
   const handleProductClick = (prod: Product) => {
     if (prod.hasAccompaniments) {
       setModalProduct(prod);
     } else {
-      // Bebidas se agregan con 1 toque
       handleAddDrinkToCart(prod);
     }
   };
@@ -72,6 +94,7 @@ export function WaiterView({ products }: WaiterViewProps) {
           productName: prod.name,
           unitPrice: prod.price,
           quantity: 1,
+          imageUrl: prod.imageUrl,
         },
       ]);
     }
@@ -84,7 +107,6 @@ export function WaiterView({ products }: WaiterViewProps) {
   const handleConfirmAccompaniment = (accompaniment: string, notes: string) => {
     if (!modalProduct) return;
 
-    // Buscar si ya existe el mismo pincho con el MISMO acompañamiento y nota
     const existingIndex = cartItems.findIndex(
       (it) =>
         it.productId === modalProduct.id &&
@@ -107,6 +129,7 @@ export function WaiterView({ products }: WaiterViewProps) {
           quantity: 1,
           accompaniment,
           notes: notes.trim() || undefined,
+          imageUrl: modalProduct.imageUrl,
         },
       ]);
     }
@@ -141,74 +164,102 @@ export function WaiterView({ products }: WaiterViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-36 max-w-md mx-auto sm:max-w-lg">
-      {/* Header Fijo Móvil */}
-      <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-3.5 flex items-center justify-between">
+    <div className="min-h-screen bg-black text-zinc-100 pb-36 max-w-md mx-auto sm:max-w-lg">
+      {/* Header Fijo Móvil (Estilo Oscuro con Detalles de Fuego) */}
+      <header className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-orange-500/20 text-orange-500 flex items-center justify-center font-black">
-            <UtensilsCrossed className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20">
+            <Flame className="w-5 h-5 text-amber-200 animate-pulse" />
           </div>
           <div>
-            <h1 className="font-black text-slate-100 text-base leading-tight">
-              Toma de Pedido
+            <h1 className="font-black text-white text-base leading-tight tracking-tight">
+              Pinchos El Paisa
             </h1>
-            <p className="text-[11px] font-semibold text-orange-400">
-              Mesero en mesa: <span className="underline">{tableNumber}</span>
+            <p className="text-[11px] font-bold text-orange-400 flex items-center gap-1">
+              <span>Atendiendo:</span>
+              <span className="text-white underline">{tableNumber}</span>
             </p>
           </div>
         </div>
 
-        {/* Indicador de mesa rápida */}
-        <div className="px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200">
-          {tableNumber}
+        {/* Selector rápido de mesa en el header */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-black text-amber-400">
+          <Table2 className="w-3.5 h-3.5 text-orange-400" />
+          <span>{tableNumber}</span>
         </div>
       </header>
 
-      {/* Selector de Categorías (Tabs grandes táctiles) */}
-      <div className="p-3.5">
-        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800">
+      {/* Buscador y Filtros Rápidos */}
+      <div className="p-3.5 space-y-3">
+        {/* Input Buscador */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar pinchos, bebidas, sabor..."
+            className="w-full bg-zinc-900/90 border border-zinc-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-hidden focus:border-orange-500 transition-colors"
+          />
+        </div>
+
+        {/* Categorías Principales (Chips de Fuego) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             type="button"
             onClick={() => setSelectedCategory("PINCHO")}
             className={cn(
-              "py-3 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95",
+              "px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap transition-all active:scale-95 shrink-0 border",
               selectedCategory === "PINCHO"
-                ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20"
-                : "text-slate-400 hover:text-white"
+                ? "bg-gradient-to-r from-orange-500 to-red-600 border-orange-400 text-white shadow-lg shadow-orange-500/25"
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
             )}
           >
-            <Flame className="w-4 h-4" />
-            <span>Pinchos ({pinchos.length})</span>
+            <Flame className="w-3.5 h-3.5" />
+            <span>🍢 Pinchos al Carbón</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSelectedCategory("BEBIDA")}
             className={cn(
-              "py-3 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95",
+              "px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap transition-all active:scale-95 shrink-0 border",
               selectedCategory === "BEBIDA"
-                ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-blue-500/20"
-                : "text-slate-400 hover:text-white"
+                ? "bg-gradient-to-r from-cyan-600 to-blue-600 border-cyan-400 text-white shadow-lg shadow-blue-500/25"
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
             )}
           >
-            <GlassWater className="w-4 h-4" />
-            <span>Bebidas ({bebidas.length})</span>
+            <GlassWater className="w-3.5 h-3.5" />
+            <span>🥤 Bebidas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("TODOS")}
+            className={cn(
+              "px-4 py-2 rounded-2xl text-xs font-black whitespace-nowrap transition-all active:scale-95 shrink-0 border",
+              selectedCategory === "TODOS"
+                ? "bg-zinc-100 border-white text-zinc-950 font-black"
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+            )}
+          >
+            Ver Todo
           </button>
         </div>
 
-        {/* Subcategorías de bebidas si está en Bebidas */}
+        {/* Subcategorías de bebidas */}
         {selectedCategory === "BEBIDA" && (
-          <div className="flex items-center gap-1.5 overflow-x-auto mt-2.5 pb-1 scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none animate-in fade-in duration-200">
             {["TODAS", "Personal", "1 Litro", "1.25 Litros", "2 Litros"].map((size) => (
               <button
                 key={size}
                 type="button"
                 onClick={() => setSelectedDrinkSize(size)}
                 className={cn(
-                  "px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 shrink-0",
+                  "px-3 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all active:scale-95 shrink-0",
                   selectedDrinkSize === size
-                    ? "bg-cyan-500 text-white shadow-sm"
-                    : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200"
+                    ? "bg-cyan-500 text-white font-black shadow-sm"
+                    : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200"
                 )}
               >
                 {size === "TODAS" ? "Todos los tamaños" : size}
@@ -218,96 +269,81 @@ export function WaiterView({ products }: WaiterViewProps) {
         )}
       </div>
 
-      {/* Lista de Productos del Menú */}
-      <div className="px-3.5 space-y-2.5">
-        {selectedCategory === "PINCHO" ? (
-          <>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Pinchos al Carbón
-              </span>
-              <span className="text-[11px] text-orange-400 font-medium">
-                Toca para elegir guarnición
-              </span>
-            </div>
+      {/* Cuadrícula de Productos en 2 Columnas (Inspirada en la Referencia) */}
+      <div className="px-3.5">
+        <div className="grid grid-cols-2 gap-3">
+          {filteredProducts.map((prod) => (
+            <div
+              key={prod.id}
+              onClick={() => handleProductClick(prod)}
+              className="group bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800/90 hover:border-orange-500/50 rounded-3xl overflow-hidden flex flex-col justify-between shadow-lg shadow-black/40 transition-all duration-200 active:scale-[0.97] cursor-pointer"
+            >
+              {/* Imagen del Producto con Iluminación de Fuego */}
+              <div className="relative aspect-square w-full overflow-hidden bg-zinc-950">
+                <ProductImage
+                  src={prod.imageUrl}
+                  alt={prod.name}
+                  containerClassName="w-full h-full"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
 
-            {pinchos.map((prod) => (
-              <button
-                key={prod.id}
-                type="button"
-                onClick={() => handleProductClick(prod)}
-                className="w-full text-left p-3.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-2xl flex items-center gap-3.5 transition-all active:scale-[0.98] shadow-sm group hover:border-orange-500/50"
-              >
-                <ProductIcon name={prod.name} category={prod.category} size="md" />
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-1">
-                    <h3 className="font-bold text-slate-100 text-sm sm:text-base leading-snug group-hover:text-orange-400 transition-colors">
-                      {prod.name}
-                    </h3>
-                    <span className="font-black text-orange-400 text-sm sm:text-base shrink-0">
-                      {formatCurrency(prod.price)}
+                {/* Badge flotante sobre la imagen */}
+                <div className="absolute top-2 left-2 z-10">
+                  {prod.category === "PINCHO" ? (
+                    <span className="px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-black text-amber-300 border border-orange-500/30 flex items-center gap-1">
+                      <Flame className="w-3 h-3 text-orange-400" />
+                      <span>Al carbón</span>
                     </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                    {prod.description || "Asado con acompañamiento"}
-                  </p>
-                  <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-300 font-semibold">
-                    <Sparkles className="w-3 h-3" />
-                    <span>Incluye 4 opciones de guarnición</span>
-                  </div>
-                </div>
-
-                <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 group-hover:bg-orange-500 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                </div>
-              </button>
-            ))}
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Bebidas Frías
-              </span>
-              <span className="text-[11px] text-cyan-400 font-medium">
-                Toca para agregar directo
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              {displayedBebidas.map((prod) => (
-                <button
-                  key={prod.id}
-                  type="button"
-                  onClick={() => handleProductClick(prod)}
-                  className="p-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-2xl flex flex-col justify-between text-left transition-all active:scale-[0.97] group hover:border-cyan-500/50"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <ProductIcon name={prod.name} category={prod.category} size="sm" />
-                    <span className="font-black text-cyan-400 text-sm">
-                      {formatCurrency(prod.price)}
-                    </span>
-                  </div>
-
-                  <div className="mt-2.5">
-                    <h3 className="font-bold text-slate-100 text-xs sm:text-sm leading-snug line-clamp-1 group-hover:text-cyan-400 transition-colors">
-                      {prod.name}
-                    </h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-black text-cyan-300 border border-cyan-500/30">
                       {prod.subCategory}
-                    </p>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Información y Precio */}
+              <div className="p-3 flex flex-col justify-between flex-1 gap-2">
+                <div>
+                  <h3 className="font-black text-white text-xs sm:text-sm leading-tight line-clamp-1 group-hover:text-orange-400 transition-colors">
+                    {prod.name}
+                  </h3>
+                  <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5 font-medium">
+                    {prod.description}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <span className="text-[9px] font-bold text-zinc-500 uppercase block leading-none">
+                      Precio
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-amber-400 tracking-tight">
+                      {formatCurrency(prod.price)}
+                    </span>
                   </div>
 
-                  <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-bold text-slate-300">
-                    <span>Agregar</span>
-                    <Plus className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-125 transition-transform" />
-                  </div>
-                </button>
-              ))}
+                  {/* Botón circular "+" con efecto de fuego */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleProductClick(prod);
+                    }}
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-md",
+                      prod.category === "PINCHO"
+                        ? "bg-gradient-to-r from-orange-500 to-red-600 shadow-orange-500/30 hover:shadow-orange-500/50"
+                        : "bg-gradient-to-r from-cyan-500 to-blue-600 shadow-blue-500/30"
+                    )}
+                  >
+                    <Plus className="w-4 h-4 stroke-[3]" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
 
       {/* Modal de Acompañamiento */}
@@ -318,7 +354,7 @@ export function WaiterView({ products }: WaiterViewProps) {
         onConfirm={handleConfirmAccompaniment}
       />
 
-      {/* Carrito Flotante */}
+      {/* Carrito Flotante de la Comanda */}
       <CartDrawer
         items={cartItems}
         tableNumber={tableNumber}

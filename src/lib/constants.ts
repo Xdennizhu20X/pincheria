@@ -15,8 +15,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: null,
     price: 3.5,
     hasAccompaniments: true,
-    description: "Deliciosa costilla de cerdo marinada y asada al carbón",
-    imageUrl: "/products/costilla.jpg",
+    description: "Jugosa costilla asada al carbón marinada con salsa especial",
+    imageUrl: "/images/products/costilla-cerdo.png",
     sortOrder: 1,
   },
   {
@@ -25,8 +25,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: null,
     price: 3.0,
     hasAccompaniments: true,
-    description: "Pincho tradicional mixto con suave carne de pollo",
-    imageUrl: "/products/mixto-pollo.jpg",
+    description: "Chorizo paisa parrillero con filete de pechuga de pollo asado",
+    imageUrl: "/images/products/mixto-pollo.png",
     sortOrder: 2,
   },
   {
@@ -35,8 +35,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: null,
     price: 3.0,
     hasAccompaniments: true,
-    description: "Pincho tradicional mixto con higadillas sazonadas",
-    imageUrl: "/products/mixto-higadillas.jpg",
+    description: "Chorizo paisa parrillero con higadillas sazonadas a la brasa",
+    imageUrl: "/images/products/mixto-higadillas.png",
     sortOrder: 3,
   },
   {
@@ -45,8 +45,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: null,
     price: 3.0,
     hasAccompaniments: true,
-    description: "Pincho tradicional mixto con selecta carne de res",
-    imageUrl: "/products/mixto-res.jpg",
+    description: "Chorizo paisa parrillero con filete de carne de res jugosa",
+    imageUrl: "/images/products/mixto-res.jpg",
     sortOrder: 4,
   },
   {
@@ -55,8 +55,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: null,
     price: 3.0,
     hasAccompaniments: true,
-    description: "Pincho tradicional mixto con tierna carne de cerdo",
-    imageUrl: "/products/mixto-cerdo.jpg",
+    description: "Chorizo paisa parrillero con tierno filete de lomo de cerdo",
+    imageUrl: "/images/products/mixto-cerdo.jpg",
     sortOrder: 5,
   },
 
@@ -67,8 +67,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: "Personal",
     price: 0.5,
     hasAccompaniments: false,
-    description: "Bebida personal refrescante",
-    imageUrl: "/products/coca-cola.jpg",
+    description: "Bebida personal bien fría",
+    imageUrl: "/images/products/coca-cola-personal.jpg",
     sortOrder: 10,
   },
   {
@@ -78,7 +78,7 @@ export const INITIAL_PRODUCTS = [
     price: 0.5,
     hasAccompaniments: false,
     description: "Bebida personal sabor naranja",
-    imageUrl: "/products/fanta.jpg",
+    imageUrl: "/images/products/fanta-personal.jpg",
     sortOrder: 11,
   },
   {
@@ -88,7 +88,7 @@ export const INITIAL_PRODUCTS = [
     price: 0.5,
     hasAccompaniments: false,
     description: "Bebida personal sabor fresa",
-    imageUrl: "/products/fioravanti.jpg",
+    imageUrl: "/images/products/fioravanti-personal.jpg",
     sortOrder: 12,
   },
   {
@@ -98,7 +98,7 @@ export const INITIAL_PRODUCTS = [
     price: 0.5,
     hasAccompaniments: false,
     description: "Bebida personal lima-limón",
-    imageUrl: "/products/sprite.jpg",
+    imageUrl: "/images/products/sprite-personal.jpg",
     sortOrder: 13,
   },
 
@@ -109,8 +109,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: "1 Litro",
     price: 1.0,
     hasAccompaniments: false,
-    description: "Botella de 1 litro",
-    imageUrl: "/products/fanta.jpg",
+    description: "Botella helada de 1 litro",
+    imageUrl: "/images/products/fanta-1l.jpg",
     sortOrder: 20,
   },
   {
@@ -119,8 +119,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: "1 Litro",
     price: 1.0,
     hasAccompaniments: false,
-    description: "Botella de 1 litro",
-    imageUrl: "/products/fioravanti.jpg",
+    description: "Botella helada de 1 litro",
+    imageUrl: "/images/products/fioravanti-1l.jpg",
     sortOrder: 21,
   },
   {
@@ -129,8 +129,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: "1 Litro",
     price: 1.0,
     hasAccompaniments: false,
-    description: "Botella de 1 litro",
-    imageUrl: "/products/sprite.jpg",
+    description: "Botella helada de 1 litro",
+    imageUrl: "/images/products/sprite-1l.jpg",
     sortOrder: 22,
   },
 
@@ -141,8 +141,8 @@ export const INITIAL_PRODUCTS = [
     subCategory: "1.25 Litros",
     price: 1.5,
     hasAccompaniments: false,
-    description: "Botella de 1.25 litros",
-    imageUrl: "/products/coca-cola.jpg",
+    description: "Botella helada de 1.25 litros",
+    imageUrl: "/images/products/coca-cola-125l.jpg",
     sortOrder: 30,
   },
 
@@ -154,7 +154,7 @@ export const INITIAL_PRODUCTS = [
     price: 2.0,
     hasAccompaniments: false,
     description: "Botella familiar de 2 litros",
-    imageUrl: "/products/coca-cola.jpg",
+    imageUrl: "/images/products/coca-cola-2l.jpg",
     sortOrder: 40,
   },
   {
@@ -164,7 +164,7 @@ export const INITIAL_PRODUCTS = [
     price: 2.0,
     hasAccompaniments: false,
     description: "Botella familiar de 2 litros",
-    imageUrl: "/products/fanta.jpg",
+    imageUrl: "/images/products/fanta-2l.jpg",
     sortOrder: 41,
   },
   {
@@ -174,7 +174,7 @@ export const INITIAL_PRODUCTS = [
     price: 2.0,
     hasAccompaniments: false,
     description: "Botella familiar de 2 litros",
-    imageUrl: "/products/fioravanti.jpg",
+    imageUrl: "/images/products/fioravanti-2l.jpg",
     sortOrder: 42,
   },
   {
@@ -184,7 +184,7 @@ export const INITIAL_PRODUCTS = [
     price: 2.0,
     hasAccompaniments: false,
     description: "Botella familiar de 2 litros",
-    imageUrl: "/products/sprite.jpg",
+    imageUrl: "/images/products/sprite-2l.jpg",
     sortOrder: 43,
   },
 ];
