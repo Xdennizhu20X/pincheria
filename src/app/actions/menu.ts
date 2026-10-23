@@ -94,3 +94,106 @@ export async function createProduct(input: CreateProductInput) {
     return { success: false, error: "No se pudo guardar el nuevo producto" };
   }
 }
+
+const DEFAULT_ACCOMPANIMENTS = [
+  "Arroz, papa, choclo, menestra",
+  "Arroz, menestra",
+  "Papa, choclo",
+  "Arroz, papa, choclo",
+  "Papa, choclo, menestra",
+  "Sin guarnición (Solo pincho)",
+];
+
+export async function getAccompaniments(onlyActive = true) {
+  try {
+    let list = await prisma.accompaniment.findMany({
+      where: onlyActive ? { isActive: true } : undefined,
+      orderBy: { sortOrder: "asc" },
+    });
+
+    if (list.length === 0) {
+      // Sembrar opciones iniciales si no existen
+      for (let i = 0; i < DEFAULT_ACCOMPANIMENTS.length; i++) {
+        await prisma.accompaniment.upsert({
+          where: { name: DEFAULT_ACCOMPANIMENTS[i] },
+          update: {},
+          create: {
+            name: DEFAULT_ACCOMPANIMENTS[i],
+            sortOrder: i + 1,
+            isActive: true,
+          },
+        });
+      }
+      list = await prisma.accompaniment.findMany({
+        where: onlyActive ? { isActive: true } : undefined,
+        orderBy: { sortOrder: "asc" },
+      });
+    }
+
+    return list;
+  } catch (error) {
+    console.error("Error al obtener guarniciones:", error);
+    return [];
+  }
+}
+
+export async function createAccompaniment(name: string) {
+  try {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return { success: false, error: "Ingresa el nombre de la guarnición" };
+    }
+
+    const last = await prisma.accompaniment.findFirst({
+      orderBy: { sortOrder: "desc" },
+    });
+    const nextOrder = (last?.sortOrder ?? 0) + 1;
+
+    const created = await prisma.accompaniment.create({
+      data: {
+        name: trimmed,
+        sortOrder: nextOrder,
+        isActive: true,
+      },
+    });
+
+    safeRevalidatePath("/mesero");
+    safeRevalidatePath("/admin");
+    return { success: true, accompaniment: created };
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return { success: false, error: "Esta guarnición ya existe" };
+    }
+    console.error("Error al crear guarnición:", error);
+    return { success: false, error: "No se pudo crear la guarnición" };
+  }
+}
+
+export async function toggleAccompanimentActive(id: string, currentState: boolean) {
+  try {
+    const updated = await prisma.accompaniment.update({
+      where: { id },
+      data: { isActive: !currentState },
+    });
+    safeRevalidatePath("/mesero");
+    safeRevalidatePath("/admin");
+    return { success: true, accompaniment: updated };
+  } catch (error) {
+    console.error("Error al actualizar guarnición:", error);
+    return { success: false, error: "No se pudo actualizar la guarnición" };
+  }
+}
+
+export async function deleteAccompaniment(id: string) {
+  try {
+    await prisma.accompaniment.delete({
+      where: { id },
+    });
+    safeRevalidatePath("/mesero");
+    safeRevalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Error al eliminar guarnición:", error);
+    return { success: false, error: "No se pudo eliminar la guarnición" };
+  }
+}

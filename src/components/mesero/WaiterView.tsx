@@ -30,11 +30,18 @@ interface Product {
   sortOrder: number;
 }
 
-interface WaiterViewProps {
-  products: Product[];
+interface Accompaniment {
+  id: string;
+  name: string;
+  isActive: boolean;
 }
 
-export function WaiterView({ products }: WaiterViewProps) {
+interface WaiterViewProps {
+  products: Product[];
+  initialAccompaniments?: Accompaniment[];
+}
+
+export function WaiterView({ products, initialAccompaniments = [] }: WaiterViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<"TODOS" | "PINCHO" | "BEBIDA">("PINCHO");
   const [selectedDrinkSize, setSelectedDrinkSize] = useState<string>("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
@@ -368,6 +375,7 @@ export function WaiterView({ products }: WaiterViewProps) {
         isOpen={!!modalProduct}
         onClose={() => setModalProduct(null)}
         product={modalProduct}
+        accompaniments={initialAccompaniments}
         onConfirm={handleConfirmAccompaniment}
       />
 

@@ -152,6 +152,24 @@ export async function deleteOrder(orderId: string) {
   }
 }
 
+export async function resetSalesHistory() {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.deleteMany({});
+      await tx.orderItem.deleteMany({});
+      await tx.order.deleteMany({});
+    });
+
+    safeRevalidatePath("/cocina");
+    safeRevalidatePath("/caja");
+    safeRevalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Error al reiniciar historial de ventas:", error);
+    return { success: false, error: "No se pudo reiniciar el historial de ventas" };
+  }
+}
+
 export async function getCashierOrders() {
   try {
     const orders = await prisma.order.findMany({

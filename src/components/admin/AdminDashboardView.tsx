@@ -14,11 +14,22 @@ import {
   Plus,
   Sparkles,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Trash2,
+  AlertTriangle,
+  Utensils
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
-import { toggleProductActive, createProduct, CreateProductInput } from "@/app/actions/menu";
+import { 
+  toggleProductActive, 
+  createProduct, 
+  CreateProductInput,
+  createAccompaniment,
+  toggleAccompanimentActive,
+  deleteAccompaniment
+} from "@/app/actions/menu";
+import { resetSalesHistory } from "@/app/actions/orders";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
@@ -64,6 +75,13 @@ interface Product {
   isActive: boolean;
 }
 
+interface Accompaniment {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 interface AdminDashboardViewProps {
   stats: {
     totalSalesToday: number;
@@ -77,11 +95,22 @@ interface AdminDashboardViewProps {
     pendingCashierCount: number;
   } | null;
   products: Product[];
+  initialAccompaniments?: Accompaniment[];
 }
 
-export function AdminDashboardView({ stats, products: initialProducts }: AdminDashboardViewProps) {
+export function AdminDashboardView({
+  stats,
+  products: initialProducts,
+  initialAccompaniments = [],
+}: AdminDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<"VENTAS" | "HISTORIAL" | "MENU">("VENTAS");
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [accompaniments, setAccompaniments] = useState<Accompaniment[]>(initialAccompaniments);
+  const [menuSubTab, setMenuSubTab] = useState<"PRODUCTOS" | "GUARNICIONES">("PRODUCTOS");
+  const [newAccName, setNewAccName] = useState("");
+  const [isCreatingAcc, setIsCreatingAcc] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   
   // Modal de nuevo producto
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -194,6 +223,79 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
       toast.error("Error al guardar producto");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleCreateAccompaniment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccName.trim()) {
+      toast.error("Ingresa el nombre de la guarnición");
+      return;
+    }
+    try {
+      setIsCreatingAcc(true);
+      const res = await createAccompaniment(newAccName);
+      if (res.success && res.accompaniment) {
+        setAccompaniments((prev) => [...prev, res.accompaniment]);
+        setNewAccName("");
+        toast.success(`Guarnición "${res.accompaniment.name}" agregada`);
+      } else {
+        toast.error(res.error || "No se pudo crear la guarnición");
+      }
+    } catch {
+      toast.error("Error al guardar guarnición");
+    } finally {
+      setIsCreatingAcc(false);
+    }
+  };
+
+  const handleToggleAccompaniment = async (acc: Accompaniment) => {
+    try {
+      const res = await toggleAccompanimentActive(acc.id, acc.isActive);
+      if (res.success && res.accompaniment) {
+        setAccompaniments((prev) =>
+          prev.map((a) => (a.id === acc.id ? { ...a, isActive: res.accompaniment.isActive } : a))
+        );
+        toast.success(
+          res.accompaniment.isActive
+            ? `"${acc.name}" disponible para meseros`
+            : `"${acc.name}" pausada temporalmente`
+        );
+      }
+    } catch {
+      toast.error("Error al actualizar guarnición");
+    }
+  };
+
+  const handleDeleteAccompaniment = async (accId: string, accName: string) => {
+    try {
+      const res = await deleteAccompaniment(accId);
+      if (res.success) {
+        setAccompaniments((prev) => prev.filter((a) => a.id !== accId));
+        toast.info(`"${accName}" eliminada`);
+      } else {
+        toast.error(res.error || "No se pudo eliminar");
+      }
+    } catch {
+      toast.error("Error al eliminar");
+    }
+  };
+
+  const handleResetSales = async () => {
+    try {
+      setIsResetting(true);
+      const res = await resetSalesHistory();
+      if (res.success) {
+        toast.success("Historial de ventas reiniciado a cero con éxito");
+        setShowResetConfirm(false);
+        window.location.reload();
+      } else {
+        toast.error(res.error || "No se pudo reiniciar el historial");
+      }
+    } catch {
+      toast.error("Error al reiniciar historial");
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -378,6 +480,55 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
       {/* TAB 2: HISTORIAL DE PEDIDOS */}
       {activeTab === "HISTORIAL" && (
         <div className="px-3.5 space-y-3">
+          {/* Card de Mantenimiento / Reinicio de Pruebas */}
+          <div className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-black text-white">Mantenimiento de Pruebas</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              ¿Hiciste pruebas y quieres empezar con ventas en $0.00? Este botón borra los pedidos de prueba sin alterar tus platos ni guarniciones.
+            </p>
+
+            {showResetConfirm ? (
+              <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl space-y-2 text-center animate-in fade-in">
+                <p className="text-xs font-bold text-rose-200">
+                  ¿Confirmas borrar todo el historial y volver a $0.00?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={isResetting}
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 py-2 rounded-lg bg-zinc-900 text-zinc-300 text-xs font-bold border border-zinc-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isResetting}
+                    onClick={handleResetSales}
+                    className="flex-1 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5"
+                  >
+                    {isResetting ? <Sparkles className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    <span>{isResetting ? "Limpiando..." : "Sí, Limpiar Todo"}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-rose-950/30 text-zinc-400 hover:text-rose-400 border border-zinc-800 hover:border-rose-900/50 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-98"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                <span>Reiniciar Historial de Pruebas a $0.00</span>
+              </button>
+            )}
+          </div>
+
           {(!stats?.todayOrders || stats.todayOrders.length === 0) ? (
             <div className="py-16 text-center bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6">
               <Receipt className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
@@ -469,79 +620,212 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
         </div>
       )}
 
-      {/* TAB 3: GESTIÓN DE MENÚ Y AGREGAR NUEVO */}
+      {/* TAB 3: GESTIÓN DE MENÚ Y GUARNICIONES */}
       {activeTab === "MENU" && (
-        <div className="px-3.5 space-y-3">
-          {/* Botón Destacado para Agregar Nuevo Producto al Menú */}
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2"
-          >
-            <Plus className="w-5 h-5 stroke-[3]" />
-            <span>Agregar Nuevo al Menú</span>
-          </button>
-
-          <div className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
-            <Flame className="w-4 h-4 text-orange-500 shrink-0" />
-            <span>
-              Si un pincho o bebida se agota en cocina, puedes pausarlo aquí para que no aparezca a los meseros.
-            </span>
+        <div className="px-3.5 space-y-3.5">
+          {/* Sub-Tabs: Platos y Bebidas vs Guarniciones */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-900/90 rounded-2xl border border-zinc-800 text-xs font-black">
+            <button
+              type="button"
+              onClick={() => setMenuSubTab("PRODUCTOS")}
+              className={cn(
+                "py-2.5 rounded-xl transition-all text-center",
+                menuSubTab === "PRODUCTOS"
+                  ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20"
+                  : "text-zinc-400 hover:text-white"
+              )}
+            >
+              🍢 Platos & Bebidas ({products.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMenuSubTab("GUARNICIONES")}
+              className={cn(
+                "py-2.5 rounded-xl transition-all text-center",
+                menuSubTab === "GUARNICIONES"
+                  ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20"
+                  : "text-zinc-400 hover:text-white"
+              )}
+            >
+              🥗 Guarniciones ({accompaniments.length})
+            </button>
           </div>
 
-          {products.map((prod) => (
-            <div
-              key={prod.id}
-              className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between gap-3 shadow-sm"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 shrink-0 border border-zinc-800">
-                  <ProductImage
-                    src={prod.imageUrl}
-                    alt={prod.name}
-                    containerClassName="w-full h-full"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <h4
-                    className={cn(
-                      "font-black text-xs sm:text-sm line-clamp-1",
-                      prod.isActive ? "text-white" : "text-zinc-500 line-through"
-                    )}
-                  >
-                    {prod.name}
-                  </h4>
-                  <span className="text-xs font-black text-amber-400">
-                    {formatCurrency(prod.price)}
-                  </span>
-                </div>
-              </div>
-
+          {menuSubTab === "PRODUCTOS" ? (
+            <div className="space-y-3">
+              {/* Botón Destacado para Agregar Nuevo Producto al Menú */}
               <button
                 type="button"
-                onClick={() => handleToggleProduct(prod)}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all active:scale-95",
-                  prod.isActive
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                    : "bg-zinc-900 text-zinc-500 border border-zinc-800"
-                )}
+                onClick={() => setIsAddModalOpen(true)}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2"
               >
-                {prod.isActive ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Disponible</span>
-                  </>
-                ) : (
-                  <>
-                    <X className="w-3.5 h-3.5" />
-                    <span>Agotado</span>
-                  </>
-                )}
+                <Plus className="w-5 h-5 stroke-[3]" />
+                <span>Agregar Nuevo al Menú</span>
               </button>
+
+              <div className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-500 shrink-0" />
+                <span>
+                  Si un pincho o bebida se agota en cocina, puedes pausarlo aquí para que no aparezca a los meseros.
+                </span>
+              </div>
+
+              {products.map((prod) => (
+                <div
+                  key={prod.id}
+                  className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between gap-3 shadow-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 shrink-0 border border-zinc-800">
+                      <ProductImage
+                        src={prod.imageUrl}
+                        alt={prod.name}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <h4
+                        className={cn(
+                          "font-black text-xs sm:text-sm line-clamp-1",
+                          prod.isActive ? "text-white" : "text-zinc-500 line-through"
+                        )}
+                      >
+                        {prod.name}
+                      </h4>
+                      <span className="text-xs font-black text-amber-400">
+                        {formatCurrency(prod.price)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleProduct(prod)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all active:scale-95",
+                      prod.isActive
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                    )}
+                  >
+                    {prod.isActive ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Disponible</span>
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-3.5 h-3.5" />
+                        <span>Agotado</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="space-y-3.5">
+              {/* Formulario para agregar nueva guarnición */}
+              <form
+                onSubmit={handleCreateAccompaniment}
+                className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <Utensils className="w-4 h-4 text-orange-400" />
+                  <span className="text-xs font-black text-white uppercase tracking-wider">
+                    Nueva Guarnición / Combinación
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newAccName}
+                    onChange={(e) => setNewAccName(e.target.value)}
+                    placeholder="Ej. Papa, choclo, menestra o Yuca frita"
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-orange-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isCreatingAcc || !newAccName.trim()}
+                    className="px-3.5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>{isCreatingAcc ? "..." : "Agregar"}</span>
+                  </button>
+                </div>
+              </form>
+
+              <div className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-500 shrink-0" />
+                <span>
+                  Estas opciones le aparecen al mesero en &quot;Servir con&quot;. La opción &quot;Sin guarnición (Solo pincho)&quot; siempre está disponible para clientes que no deseen acompañamiento.
+                </span>
+              </div>
+
+              {/* Lista de guarniciones */}
+              {accompaniments.length === 0 ? (
+                <p className="text-xs text-zinc-500 text-center py-6">
+                  No hay guarniciones registradas.
+                </p>
+              ) : (
+                accompaniments.map((acc) => (
+                  <div
+                    key={acc.id}
+                    className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between gap-2 shadow-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <h4
+                        className={cn(
+                          "font-bold text-xs sm:text-sm capitalize line-clamp-1",
+                          acc.isActive ? "text-white" : "text-zinc-500 line-through"
+                        )}
+                      >
+                        {acc.name}
+                      </h4>
+                      <span className="text-[10px] text-zinc-500 block">
+                        {acc.isActive ? "Visible para meseros" : "Oculta temporalmente"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAccompaniment(acc)}
+                        className={cn(
+                          "px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 transition-all active:scale-95",
+                          acc.isActive
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                        )}
+                      >
+                        {acc.isActive ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Activa</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-3.5 h-3.5" />
+                            <span>Pausada</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAccompaniment(acc.id, acc.name)}
+                        title="Eliminar guarnición"
+                        className="p-2 rounded-xl bg-zinc-900 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/15 border border-zinc-800 active:scale-90 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 

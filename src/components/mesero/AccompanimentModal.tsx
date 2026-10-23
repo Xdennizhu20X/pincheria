@@ -17,6 +17,7 @@ interface AccompanimentModalProps {
     imageUrl?: string | null;
     description?: string | null;
   } | null;
+  accompaniments?: { id: string; name: string; isActive?: boolean }[];
   onConfirm: (accompaniment: string, notes: string) => void;
 }
 
@@ -24,16 +25,38 @@ export function AccompanimentModal({
   isOpen,
   onClose,
   product,
+  accompaniments,
   onConfirm,
 }: AccompanimentModalProps) {
-  const [selectedAcc, setSelectedAcc] = useState<AccompanimentOption>(
-    ACCOMPANIMENT_OPTIONS[0]
-  );
+  const options = React.useMemo(() => {
+    const list =
+      accompaniments && accompaniments.length > 0
+        ? accompaniments.filter((a) => a.isActive !== false).map((a) => a.name)
+        : [...ACCOMPANIMENT_OPTIONS];
+
+    const hasNone = list.some(
+      (n) =>
+        n.toLowerCase().includes("sin guarnición") ||
+        n.toLowerCase().includes("sin acompañamiento")
+    );
+    if (!hasNone) {
+      list.push("Sin guarnición (Solo pincho)");
+    }
+    return list;
+  }, [accompaniments]);
+
+  const [selectedAcc, setSelectedAcc] = useState<string>(options[0] || "Sin guarnición (Solo pincho)");
   const [notes, setNotes] = useState("");
+
+  React.useEffect(() => {
+    if (options.length > 0 && !options.includes(selectedAcc)) {
+      setSelectedAcc(options[0]);
+    }
+  }, [options, selectedAcc]);
 
   if (!isOpen || !product) return null;
 
-  const handleSelect = (option: AccompanimentOption) => {
+  const handleSelect = (option: string) => {
     setSelectedAcc(option);
   };
 
@@ -110,8 +133,9 @@ export function AccompanimentModal({
             </div>
 
             <div className="space-y-2">
-              {ACCOMPANIMENT_OPTIONS.map((opt) => {
+              {options.map((opt) => {
                 const isSelected = selectedAcc === opt;
+                const isSinGuarnicion = opt.toLowerCase().includes("sin guarnición") || opt.toLowerCase().includes("sin acompañamiento");
                 return (
                   <button
                     key={opt}
@@ -135,7 +159,7 @@ export function AccompanimentModal({
                       >
                         {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
-                      <span className="text-xs sm:text-sm font-bold capitalize">
+                      <span className={cn("text-xs sm:text-sm font-bold capitalize", isSinGuarnicion && "text-zinc-400 italic")}>
                         {opt}
                       </span>
                     </div>
