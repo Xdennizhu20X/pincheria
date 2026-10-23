@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Toaster } from "sonner";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,18 +28,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="h-full bg-slate-900 antialiased selection:bg-orange-500 selection:text-white">
-      <body className="min-h-full flex flex-col font-sans text-slate-100 bg-slate-950">
+    <html
+      lang="es"
+      className="h-full bg-slate-950 antialiased selection:bg-orange-500 selection:text-white"
+      suppressHydrationWarning
+    >
+      <body
+        className="min-h-full flex flex-col font-sans text-slate-100 bg-slate-950"
+        suppressHydrationWarning
+      >
         {children}
-        <Toaster 
-          position="top-center" 
-          richColors 
-          closeButton 
-          toastOptions={{
-            duration: 3000,
-            className: "text-sm font-medium",
-          }}
-        />
+        <ToastProvider />
       </body>
     </html>
   );
