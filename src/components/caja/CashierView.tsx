@@ -198,7 +198,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
               Caja & Facturación
             </h1>
             <p className="text-[10px] font-bold text-emerald-400">
-              {orders.length} mesas listas por cobrar
+              {orders.length} pedidos listos por cobrar
             </p>
           </div>
         </div>
@@ -228,13 +228,13 @@ export function CashierView({ initialOrders }: CashierViewProps) {
           <div className="text-right">
             <span className="text-[10px] text-zinc-400 font-bold block">Por pagar</span>
             <span className="text-sm font-black text-emerald-400">
-              {orders.length} mesas
+              {orders.length} pedidos
             </span>
           </div>
         </div>
       </div>
 
-      {/* Buscador de Mesas */}
+      {/* Buscador de Clientes */}
       <div className="px-3.5 mb-3">
         <div className="relative">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -242,7 +242,7 @@ export function CashierView({ initialOrders }: CashierViewProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar mesa o comanda..."
+            placeholder="Buscar por cliente o número de comanda..."
             className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-hidden focus:border-emerald-500"
           />
         </div>
@@ -270,12 +270,14 @@ export function CashierView({ initialOrders }: CashierViewProps) {
             >
               <div className="flex items-center justify-between">
                 <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block">
+                    Cliente:
+                  </span>
                   <h3 className="font-black text-lg text-white">
-                    {order.tableNumber}
+                    {order.customerName || order.tableNumber}
                   </h3>
                   <p className="text-xs font-bold text-zinc-400">
                     Comanda #{order.orderNumber}
-                    {order.customerName && ` • ${order.customerName}`}
                   </p>
                 </div>
 
@@ -328,10 +330,10 @@ export function CashierView({ initialOrders }: CashierViewProps) {
             <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
-                  Cobro de Mesa
+                  Cobro de Pedido
                 </span>
                 <h2 className="font-black text-white text-lg">
-                  {selectedOrder.tableNumber} (Comanda #{selectedOrder.orderNumber})
+                  {selectedOrder.customerName || selectedOrder.tableNumber} (Comanda #{selectedOrder.orderNumber})
                 </h2>
               </div>
               <button

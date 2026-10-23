@@ -2,17 +2,16 @@
 
 import React, { useState } from "react";
 import { 
-  ShoppingBag, 
   Trash2, 
   Plus, 
   Minus, 
   Send, 
   X, 
   ChevronUp, 
-  Table2,
-  User,
+  User, 
   Sparkles,
-  Flame
+  Flame,
+  CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -25,8 +24,6 @@ export interface CartItem extends CreateOrderItemInput {
 
 interface CartDrawerProps {
   items: CartItem[];
-  tableNumber: string;
-  setTableNumber: (table: string) => void;
   customerName: string;
   setCustomerName: (name: string) => void;
   onUpdateQuantity: (tempId: string, delta: number) => void;
@@ -34,16 +31,12 @@ interface CartDrawerProps {
   onClearCart: () => void;
 }
 
-const PRESET_TABLES = [
-  "Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4",
-  "Mesa 5", "Mesa 6", "Mesa 7", "Mesa 8",
-  "Barra", "Para Llevar"
+const QUICK_NAMES = [
+  "Para Llevar", "Barra", "Don Carlos", "Familia López"
 ];
 
 export function CartDrawer({
   items,
-  tableNumber,
-  setTableNumber,
   customerName,
   setCustomerName,
   onUpdateQuantity,
@@ -59,17 +52,19 @@ export function CartDrawer({
   if (items.length === 0) return null;
 
   const handleSubmitOrder = async () => {
-    if (!tableNumber) {
-      toast.error("Por favor selecciona una mesa o 'Para Llevar'");
+    const trimmedName = customerName.trim();
+    if (!trimmedName) {
+      toast.error("Por favor ingresa a nombre de quién es el pedido");
+      setIsOpen(true);
       return;
     }
 
     try {
       setIsSubmitting(true);
       const res = await createOrder({
-        tableNumber,
-        customerName: customerName || undefined,
-        waiterName: "Mesero Móvil",
+        customerName: trimmedName,
+        tableNumber: trimmedName,
+        waiterName: "Mesero Celular",
         items: items.map((it) => ({
           productId: it.productId,
           productName: it.productName,
@@ -81,8 +76,8 @@ export function CartDrawer({
       });
 
       if (res.success && res.order) {
-        toast.success(`¡Comanda #${res.order.orderNumber} enviada al asador!`, {
-          description: `${tableNumber} • Total: ${formatCurrency(res.order.total)}`,
+        toast.success(`¡Comanda #${res.order.orderNumber} para ${trimmedName}!`, {
+          description: `Total: ${formatCurrency(res.order.total)} • Enviada a cocina`,
         });
         onClearCart();
         setIsOpen(false);
@@ -98,7 +93,7 @@ export function CartDrawer({
 
   return (
     <>
-      {/* Botón flotante siempre visible (Estilo Isla Flotante de Fuego) */}
+      {/* Botón flotante siempre visible sobre la barra de navegación */}
       <div className="fixed bottom-20 left-0 right-0 z-30 px-3.5 max-w-md mx-auto pointer-events-none">
         <button
           type="button"
@@ -111,7 +106,7 @@ export function CartDrawer({
             </div>
             <div className="text-left leading-tight">
               <span className="text-[10px] uppercase font-black tracking-wider text-orange-200 block">
-                {tableNumber || "Elegir mesa..."}
+                {customerName ? `Para: ${customerName}` : "Ingresar nombre..."}
               </span>
               <span className="text-sm font-black tracking-tight">Ver Comanda Actual</span>
             </div>
@@ -126,7 +121,7 @@ export function CartDrawer({
         </button>
       </div>
 
-      {/* Modal / Drawer expandible */}
+      {/* Modal / Drawer expandible con el detalle del pedido */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
           <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-200">
@@ -135,7 +130,7 @@ export function CartDrawer({
               <div className="flex items-center gap-2">
                 <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
                 <h2 className="font-black text-white text-base">
-                  Comanda en Mesa ({totalItemsCount} ítems)
+                  Comanda ({totalItemsCount} ítems)
                 </h2>
               </div>
               <button
@@ -147,43 +142,42 @@ export function CartDrawer({
               </button>
             </div>
 
-            {/* Configuración rápida de Mesa */}
-            <div className="p-4 bg-zinc-900/60 border-b border-zinc-800/80 space-y-3">
-              <div>
-                <label className="flex items-center gap-1.5 text-[11px] font-black text-orange-400 uppercase tracking-wider mb-2">
-                  <Table2 className="w-3.5 h-3.5" />
-                  <span>Ubicación en el local:</span>
-                </label>
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {PRESET_TABLES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTableNumber(t)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 shrink-0",
-                        tableNumber === t
-                          ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm shadow-orange-500/30"
-                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                      )}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+            {/* Configuración de: ¿A nombre de quién? */}
+            <div className="p-4 bg-zinc-900/60 border-b border-zinc-800/80 space-y-2.5">
+              <label className="flex items-center gap-1.5 text-xs font-black text-amber-400 uppercase tracking-wider">
+                <User className="w-4 h-4 text-orange-500" />
+                <span>¿A nombre de quién es el pedido? (Obligatorio):</span>
+              </label>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  autoFocus={!customerName}
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Ej. Juan Pérez, Don Carlos, Familia López..."
+                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-white placeholder:text-zinc-500 focus:outline-hidden focus:border-orange-500 shadow-inner"
+                />
               </div>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Referencia o nombre de cliente (opcional)"
-                    className="w-full bg-zinc-850 border border-zinc-700/80 rounded-xl px-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-hidden focus:border-orange-500"
-                  />
-                </div>
+              {/* Botones de sugerencia rápida */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 scrollbar-none">
+                <span className="text-[10px] font-bold text-zinc-500 shrink-0">Rápido:</span>
+                {QUICK_NAMES.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setCustomerName(name)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all active:scale-95 shrink-0 border",
+                      customerName === name
+                        ? "bg-orange-500/20 border-orange-500 text-orange-300"
+                        : "bg-zinc-850 border-zinc-750 text-zinc-400 hover:text-zinc-200"
+                    )}
+                  >
+                    {name}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -269,7 +263,9 @@ export function CartDrawer({
                 <span>
                   {isSubmitting
                     ? "Enviando al asador..."
-                    : `Enviar a Cocina • ${formatCurrency(totalAmount)}`}
+                    : customerName.trim()
+                    ? `Enviar Comanda de ${customerName.trim()} • ${formatCurrency(totalAmount)}`
+                    : `Ingresar Nombre para Enviar • ${formatCurrency(totalAmount)}`}
                 </span>
               </button>
             </div>

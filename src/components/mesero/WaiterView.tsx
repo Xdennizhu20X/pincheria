@@ -6,10 +6,9 @@ import {
   Flame, 
   GlassWater, 
   Sparkles, 
-  UtensilsCrossed, 
   Search,
-  Clock,
-  Table2
+  User,
+  Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { ProductImage } from "@/components/ui/ProductImage";
@@ -38,7 +37,6 @@ export function WaiterView({ products }: WaiterViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<"TODOS" | "PINCHO" | "BEBIDA">("PINCHO");
   const [selectedDrinkSize, setSelectedDrinkSize] = useState<string>("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
-  const [tableNumber, setTableNumber] = useState<string>("Mesa 1");
   const [customerName, setCustomerName] = useState<string>("");
   
   // Carrito de compras
@@ -49,15 +47,12 @@ export function WaiterView({ products }: WaiterViewProps) {
 
   // Filtrado de productos
   const filteredProducts = products.filter((prod) => {
-    // Categoría
     if (selectedCategory !== "TODOS" && prod.category !== selectedCategory) {
       return false;
     }
-    // Subcategoría de bebidas
     if (selectedCategory === "BEBIDA" && selectedDrinkSize !== "TODAS") {
       if (prod.subCategory !== selectedDrinkSize) return false;
     }
-    // Buscador
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
@@ -175,20 +170,25 @@ export function WaiterView({ products }: WaiterViewProps) {
             className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shadow-md shadow-orange-500/20"
           />
           <div>
-            <h1 className="font-black text-white text-sm sm:text-base leading-tight tracking-tight uppercase">
+            <h1 className="font-black text-white text-xs sm:text-sm leading-tight tracking-tight uppercase">
               La Última Oportunidad
             </h1>
             <p className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
-              <span>Atendiendo:</span>
-              <span className="text-white underline">{tableNumber}</span>
+              <span>Toma de Pedido Móvil</span>
             </p>
           </div>
         </div>
 
-        {/* Selector rápido de mesa en el header */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-black text-amber-400">
-          <Table2 className="w-3.5 h-3.5 text-orange-400" />
-          <span>{tableNumber}</span>
+        {/* Input Rápido: ¿A nombre de quién? */}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-amber-400 shadow-inner">
+          <User className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="¿A nombre de quién?"
+            className="bg-transparent border-none outline-none text-white font-black placeholder:text-zinc-500 w-28 sm:w-36 text-xs"
+          />
         </div>
       </header>
 
@@ -206,7 +206,7 @@ export function WaiterView({ products }: WaiterViewProps) {
           />
         </div>
 
-        {/* Categorías Principales (Chips de Fuego) */}
+        {/* Categorías Principales */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             type="button"
@@ -272,7 +272,7 @@ export function WaiterView({ products }: WaiterViewProps) {
         )}
       </div>
 
-      {/* Cuadrícula de Productos en 2 Columnas (Inspirada en la Referencia) */}
+      {/* Cuadrícula de Productos en 2 Columnas */}
       <div className="px-3.5">
         <div className="grid grid-cols-2 gap-3">
           {filteredProducts.map((prod) => (
@@ -281,7 +281,7 @@ export function WaiterView({ products }: WaiterViewProps) {
               onClick={() => handleProductClick(prod)}
               className="group bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800/90 hover:border-orange-500/50 rounded-3xl overflow-hidden flex flex-col justify-between shadow-lg shadow-black/40 transition-all duration-200 active:scale-[0.97] cursor-pointer"
             >
-              {/* Imagen del Producto con Iluminación de Fuego */}
+              {/* Imagen del Producto */}
               <div className="relative aspect-square w-full overflow-hidden bg-zinc-950">
                 <ProductImage
                   src={prod.imageUrl}
@@ -290,7 +290,7 @@ export function WaiterView({ products }: WaiterViewProps) {
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
 
-                {/* Badge flotante sobre la imagen */}
+                {/* Badge flotante */}
                 <div className="absolute top-2 left-2 z-10">
                   {prod.category === "PINCHO" ? (
                     <span className="px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-black text-amber-300 border border-orange-500/30 flex items-center gap-1">
@@ -326,7 +326,6 @@ export function WaiterView({ products }: WaiterViewProps) {
                     </span>
                   </div>
 
-                  {/* Botón circular "+" con efecto de fuego */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -360,8 +359,6 @@ export function WaiterView({ products }: WaiterViewProps) {
       {/* Carrito Flotante de la Comanda */}
       <CartDrawer
         items={cartItems}
-        tableNumber={tableNumber}
-        setTableNumber={setTableNumber}
         customerName={customerName}
         setCustomerName={setCustomerName}
         onUpdateQuantity={handleUpdateQuantity}
@@ -369,7 +366,6 @@ export function WaiterView({ products }: WaiterViewProps) {
         onClearCart={handleClearCart}
       />
 
-      {/* Barra de navegación inferior */}
       <BottomNav />
     </div>
   );

@@ -92,6 +92,7 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
     subCategory: string;
     price: string;
     description: string;
+    imageUrl: string;
     hasAccompaniments: boolean;
   }>({
     name: "",
@@ -99,11 +100,37 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
     subCategory: "",
     price: "",
     description: "",
+    imageUrl: "",
     hasAccompaniments: true,
   });
 
   // Modal para ver foto de comprobante
   const [viewingProof, setViewingProof] = useState<string | null>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = Math.min(img.width, MAX_WIDTH);
+        canvas.height = img.width > MAX_WIDTH ? img.height * scaleSize : img.height;
+
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        setNewProduct((prev) => ({ ...prev, imageUrl: dataUrl }));
+        toast.success("Foto del producto cargada con éxito");
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleToggleProduct = async (prod: Product) => {
     try {
@@ -143,6 +170,7 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
         subCategory: newProduct.subCategory || undefined,
         price: numPrice,
         description: newProduct.description || undefined,
+        imageUrl: newProduct.imageUrl || undefined,
         hasAccompaniments: newProduct.category === "PINCHO" ? newProduct.hasAccompaniments : false,
       });
 
@@ -156,6 +184,7 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
           subCategory: "",
           price: "",
           description: "",
+          imageUrl: "",
           hasAccompaniments: true,
         });
       } else {
@@ -633,6 +662,56 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
                   />
                 </div>
               )}
+
+              {/* Foto del Producto */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  Foto del Producto (opcional):
+                </label>
+                {newProduct.imageUrl ? (
+                  <div className="relative w-full h-36 rounded-2xl overflow-hidden border border-zinc-750 bg-zinc-900 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={newProduct.imageUrl}
+                      alt="Vista previa"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct((prev) => ({ ...prev, imageUrl: "" }))}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Eliminar foto</span>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewProduct((prev) => ({ ...prev, imageUrl: "" }))}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/80 text-white flex items-center justify-center border border-zinc-700"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 w-full h-28 rounded-2xl border-2 border-dashed border-zinc-800 hover:border-orange-500/50 bg-zinc-900/60 hover:bg-zinc-900 cursor-pointer transition-all p-3 text-center">
+                    <div className="w-10 h-10 rounded-full bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs">
+                      <span className="font-bold text-zinc-200">Subir foto o tomar con cámara</span>
+                      <p className="text-[10px] text-zinc-500">PNG, JPG o foto directa del celular</p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
 
               <div className="pt-2">
                 <button

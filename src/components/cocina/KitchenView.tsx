@@ -178,7 +178,7 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
           <div className="text-right">
             <span className="text-[10px] text-zinc-400 font-bold block">En cola</span>
             <span className="text-sm font-black text-amber-400">
-              {orders.length} mesas
+              {orders.length} pedidos
             </span>
           </div>
         </div>
@@ -224,8 +224,11 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
                       #{index + 1}
                     </span>
                     <div>
-                      <h2 className="font-black text-base text-white tracking-tight leading-none">
-                        {order.tableNumber}
+                      <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block">
+                        Cliente:
+                      </span>
+                      <h2 className="font-black text-lg text-white tracking-tight leading-none mt-0.5">
+                        {order.customerName || order.tableNumber}
                       </h2>
                       <span className="text-[11px] font-semibold text-zinc-400 mt-0.5 inline-block">
                         Comanda #{order.orderNumber}

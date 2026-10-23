@@ -13,8 +13,8 @@ export interface CreateOrderItemInput {
 }
 
 export interface CreateOrderInput {
-  tableNumber: string;
-  customerName?: string;
+  customerName: string;
+  tableNumber?: string;
   waiterName?: string;
   notes?: string;
   items: CreateOrderItemInput[];
@@ -34,8 +34,9 @@ export async function createOrder(input: CreateOrderInput) {
       return { success: false, error: "El pedido debe contener al menos un producto" };
     }
 
-    if (!input.tableNumber.trim()) {
-      return { success: false, error: "Debes ingresar o seleccionar una mesa" };
+    const clientName = input.customerName?.trim() || input.tableNumber?.trim();
+    if (!clientName) {
+      return { success: false, error: "Por favor ingresa a nombre de quién es el pedido" };
     }
 
     // Calcular total
@@ -55,8 +56,8 @@ export async function createOrder(input: CreateOrderInput) {
     const order = await prisma.order.create({
       data: {
         orderNumber: nextOrderNumber,
-        tableNumber: input.tableNumber.trim(),
-        customerName: input.customerName?.trim() || null,
+        tableNumber: clientName, // Usar el nombre del cliente como identificador principal
+        customerName: clientName,
         waiterName: input.waiterName?.trim() || "Mesero",
         notes: input.notes?.trim() || null,
         status: "PENDIENTE_COCINA",
