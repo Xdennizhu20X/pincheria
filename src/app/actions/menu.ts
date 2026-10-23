@@ -95,6 +95,63 @@ export async function createProduct(input: CreateProductInput) {
   }
 }
 
+export interface UpdateProductInput {
+  name: string;
+  category: "PINCHO" | "BEBIDA";
+  subCategory?: string;
+  price: number;
+  description?: string;
+  imageUrl?: string;
+  hasAccompaniments: boolean;
+}
+
+export async function updateProduct(productId: string, input: UpdateProductInput) {
+  try {
+    if (!input.name.trim()) {
+      return { success: false, error: "El nombre es obligatorio" };
+    }
+    const numPrice = Number(input.price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      return { success: false, error: "Ingresa un precio válido" };
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        name: input.name.trim(),
+        category: input.category,
+        subCategory: input.subCategory?.trim() || null,
+        price: numPrice,
+        description: input.description?.trim() || null,
+        ...(input.imageUrl ? { imageUrl: input.imageUrl.trim() } : {}),
+        hasAccompaniments: input.category === "PINCHO" ? input.hasAccompaniments : false,
+      },
+    });
+
+    safeRevalidatePath("/mesero");
+    safeRevalidatePath("/admin");
+    return { success: true, product: updated };
+  } catch (error) {
+    console.error("Error al actualizar producto:", error);
+    return { success: false, error: "No se pudo actualizar el producto" };
+  }
+}
+
+export async function deleteProduct(productId: string) {
+  try {
+    await prisma.product.delete({
+      where: { id: productId },
+    });
+
+    safeRevalidatePath("/mesero");
+    safeRevalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Error al eliminar producto:", error);
+    return { success: false, error: "No se pudo eliminar el producto del menú" };
+  }
+}
+
 const DEFAULT_ACCOMPANIMENTS = [
   "Arroz, papa, choclo, menestra",
   "Arroz, menestra",

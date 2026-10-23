@@ -17,13 +17,16 @@ import {
   Image as ImageIcon,
   Trash2,
   AlertTriangle,
-  Utensils
+  Utensils,
+  Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
 import { 
   toggleProductActive, 
   createProduct, 
+  updateProduct,
+  deleteProduct,
   CreateProductInput,
   createAccompaniment,
   toggleAccompanimentActive,
@@ -72,6 +75,8 @@ interface Product {
   subCategory: string | null;
   price: number;
   imageUrl: string | null;
+  description?: string | null;
+  hasAccompaniments?: boolean;
   isActive: boolean;
 }
 
@@ -132,6 +137,23 @@ export function AdminDashboardView({
     imageUrl: "",
     hasAccompaniments: true,
   });
+
+  // Modal de edición de producto
+  const [editingProduct, setEditingProduct] = useState<{
+    id: string;
+    name: string;
+    category: "PINCHO" | "BEBIDA";
+    subCategory: string;
+    price: string;
+    description: string;
+    imageUrl: string;
+    hasAccompaniments: boolean;
+  } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Modal para confirmar eliminación de producto
+  const [deletingProductTarget, setDeletingProductTarget] = useState<Product | null>(null);
+  const [isDeletingProd, setIsDeletingProd] = useState(false);
 
   // Modal para ver foto de comprobante
   const [viewingProof, setViewingProof] = useState<string | null>(null);
@@ -223,6 +245,104 @@ export function AdminDashboardView({
       toast.error("Error al guardar producto");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = Math.min(img.width, MAX_WIDTH);
+        canvas.height = img.width > MAX_WIDTH ? img.height * scaleSize : img.height;
+
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        setEditingProduct((prev) => (prev ? { ...prev, imageUrl: dataUrl } : null));
+        toast.success("Foto del producto actualizada");
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleOpenEdit = (prod: Product) => {
+    setEditingProduct({
+      id: prod.id,
+      name: prod.name,
+      category: prod.category as "PINCHO" | "BEBIDA",
+      subCategory: prod.subCategory || "",
+      price: prod.price.toString(),
+      description: prod.description || "",
+      imageUrl: prod.imageUrl || "",
+      hasAccompaniments: prod.hasAccompaniments ?? (prod.category === "PINCHO"),
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    if (!editingProduct.name.trim()) {
+      toast.error("Ingresa el nombre del producto");
+      return;
+    }
+    const numPrice = parseFloat(editingProduct.price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      toast.error("Ingresa un precio válido");
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      const res = await updateProduct(editingProduct.id, {
+        name: editingProduct.name,
+        category: editingProduct.category,
+        subCategory: editingProduct.subCategory || undefined,
+        price: numPrice,
+        description: editingProduct.description || undefined,
+        imageUrl: editingProduct.imageUrl || undefined,
+        hasAccompaniments: editingProduct.category === "PINCHO" ? editingProduct.hasAccompaniments : false,
+      });
+
+      if (res.success && res.product) {
+        toast.success(`¡${res.product.name} actualizado con éxito!`);
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingProduct.id ? { ...p, ...res.product } : p))
+        );
+        setEditingProduct(null);
+      } else {
+        toast.error(res.error || "No se pudo actualizar el producto");
+      }
+    } catch {
+      toast.error("Error al actualizar producto");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!deletingProductTarget) return;
+    try {
+      setIsDeletingProd(true);
+      const res = await deleteProduct(deletingProductTarget.id);
+      if (res.success) {
+        toast.info(`"${deletingProductTarget.name}" eliminado del menú`);
+        setProducts((prev) => prev.filter((p) => p.id !== deletingProductTarget.id));
+        setDeletingProductTarget(null);
+      } else {
+        toast.error(res.error || "No se pudo eliminar el producto");
+      }
+    } catch {
+      toast.error("Error al eliminar el producto");
+    } finally {
+      setIsDeletingProd(false);
     }
   };
 
@@ -699,28 +819,48 @@ export function AdminDashboardView({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleToggleProduct(prod)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all active:scale-95",
-                      prod.isActive
-                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                        : "bg-zinc-900 text-zinc-500 border border-zinc-800"
-                    )}
-                  >
-                    {prod.isActive ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Disponible</span>
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-3.5 h-3.5" />
-                        <span>Agotado</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleProduct(prod)}
+                      className={cn(
+                        "px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 transition-all active:scale-95",
+                        prod.isActive
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                          : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                      )}
+                    >
+                      {prod.isActive ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Disponible</span>
+                        </>
+                      ) : (
+                        <>
+                          <X className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Agotado</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(prod)}
+                      title="Editar producto"
+                      className="p-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/15 border border-zinc-800 active:scale-90 transition-all"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeletingProductTarget(prod)}
+                      title="Eliminar producto"
+                      className="p-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/15 border border-zinc-800 active:scale-90 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1036,6 +1176,227 @@ export function AdminDashboardView({
                 alt="Comprobante completo"
                 className="w-full max-h-[60vh] object-contain"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA EDITAR PRODUCTO DEL MENÚ */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-amber-500" />
+                <h2 className="font-black text-white text-base">
+                  Editar Plato o Bebida
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center active:scale-90 border border-zinc-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-4 overflow-y-auto space-y-3.5 text-xs flex-1">
+              {/* Categoría */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Categoría:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct({ ...editingProduct, category: "PINCHO", hasAccompaniments: true })}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl font-bold border transition-all text-center",
+                      editingProduct.category === "PINCHO"
+                        ? "bg-orange-500/20 border-orange-500 text-orange-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                    )}
+                  >
+                    🍢 Pincho al Carbón
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct({ ...editingProduct, category: "BEBIDA", hasAccompaniments: false })}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl font-bold border transition-all text-center",
+                      editingProduct.category === "BEBIDA"
+                        ? "bg-cyan-500/20 border-cyan-500 text-cyan-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                    )}
+                  >
+                    🥤 Bebida Fría
+                  </button>
+                </div>
+              </div>
+
+              {/* Nombre */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Nombre:</label>
+                <input
+                  type="text"
+                  required
+                  value={editingProduct.name}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                  placeholder="Ej. Mixto Especial de Picaña o Bebida de 3L"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-amber-500"
+                />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Precio ($ USD):</label>
+                <input
+                  type="number"
+                  step="0.05"
+                  required
+                  value={editingProduct.price}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })}
+                  placeholder="Ej. 3.50"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-amber-500 font-bold"
+                />
+              </div>
+
+              {/* Subcategoría (si es bebida) */}
+              {editingProduct.category === "BEBIDA" && (
+                <div>
+                  <label className="font-bold text-zinc-300 block mb-1">Tamaño / Presentación:</label>
+                  <input
+                    type="text"
+                    value={editingProduct.subCategory}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, subCategory: e.target.value })}
+                    placeholder="Ej. Personal, 1 Litro, 2 Litros..."
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-cyan-500"
+                  />
+                </div>
+              )}
+
+              {/* Descripción */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Descripción corta:</label>
+                <input
+                  type="text"
+                  value={editingProduct.description}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                  placeholder="Ej. Asado con carbón de leña y adobo especial"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-amber-500"
+                />
+              </div>
+
+              {/* ¿Incluye acompañamiento? */}
+              {editingProduct.category === "PINCHO" && (
+                <div className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex items-center justify-between">
+                  <span className="font-bold text-zinc-300">¿Incluye selección de guarnición?</span>
+                  <input
+                    type="checkbox"
+                    checked={editingProduct.hasAccompaniments}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, hasAccompaniments: e.target.checked })}
+                    className="w-5 h-5 accent-orange-500"
+                  />
+                </div>
+              )}
+
+              {/* Foto del Producto */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  Foto del Producto:
+                </label>
+                {editingProduct.imageUrl ? (
+                  <div className="relative w-full h-36 rounded-2xl overflow-hidden border border-zinc-750 bg-zinc-900 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={editingProduct.imageUrl}
+                      alt="Vista previa"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => setEditingProduct((prev) => (prev ? { ...prev, imageUrl: "" } : null))}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Cambiar foto</span>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct((prev) => (prev ? { ...prev, imageUrl: "" } : null))}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/80 text-white flex items-center justify-center border border-zinc-700"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 w-full h-28 rounded-2xl border-2 border-dashed border-zinc-800 hover:border-amber-500/50 bg-zinc-900/60 hover:bg-zinc-900 cursor-pointer transition-all p-3 text-center">
+                    <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div className="text-xs">
+                      <span className="font-bold text-zinc-200">Subir nueva foto o tomar con cámara</span>
+                      <p className="text-[10px] text-zinc-500">PNG, JPG o foto del celular</p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isUpdating ? <Sparkles className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{isUpdating ? "Guardando cambios..." : "Guardar Cambios"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN PARA ELIMINAR PRODUCTO */}
+      {deletingProductTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-2.5 text-rose-400">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="font-black text-sm text-white">¿Eliminar del Menú?</h3>
+            </div>
+            
+            <p className="text-xs text-zinc-300">
+              ¿Estás seguro de que deseas eliminar permanentemente <span className="font-bold text-white">&quot;{deletingProductTarget.name}&quot;</span>? Ya no estará disponible para los meseros.
+            </p>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingProd}
+                onClick={() => setDeletingProductTarget(null)}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingProd}
+                onClick={handleConfirmDeleteProduct}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5"
+              >
+                {isDeletingProd ? <Sparkles className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeletingProd ? "Eliminando..." : "Sí, Eliminar"}</span>
+              </button>
             </div>
           </div>
         </div>
