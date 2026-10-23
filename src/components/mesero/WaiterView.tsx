@@ -165,17 +165,20 @@ export function WaiterView({ products }: WaiterViewProps) {
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 pb-36 max-w-md mx-auto sm:max-w-lg">
-      {/* Header Fijo Móvil (Estilo Oscuro con Detalles de Fuego) */}
+      {/* Header Fijo Móvil (Estilo Oscuro con Logo Oficial) */}
       <header className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20">
-            <Flame className="w-5 h-5 text-amber-200 animate-pulse" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="Logo La Última Oportunidad"
+            className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shadow-md shadow-orange-500/20"
+          />
           <div>
-            <h1 className="font-black text-white text-base leading-tight tracking-tight">
-              Pinchos El Paisa
+            <h1 className="font-black text-white text-sm sm:text-base leading-tight tracking-tight uppercase">
+              La Última Oportunidad
             </h1>
-            <p className="text-[11px] font-bold text-orange-400 flex items-center gap-1">
+            <p className="text-[10px] font-bold text-amber-400 flex items-center gap-1">
               <span>Atendiendo:</span>
               <span className="text-white underline">{tableNumber}</span>
             </p>

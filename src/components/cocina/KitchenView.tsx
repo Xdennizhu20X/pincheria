@@ -132,14 +132,17 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
       {/* Header Cocina KDS */}
       <header className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20">
-            <ChefHat className="w-5 h-5" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="Logo La Última Oportunidad"
+            className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shadow-md shadow-orange-500/20"
+          />
           <div>
-            <h1 className="font-black text-white text-base leading-tight">
-              Cocina & Asador (KDS)
+            <h1 className="font-black text-white text-sm sm:text-base leading-tight uppercase">
+              Cocina & Asador KDS
             </h1>
-            <p className="text-[11px] font-bold text-amber-400">
+            <p className="text-[10px] font-bold text-amber-400">
               {orders.length} comandas en preparación
             </p>
           </div>

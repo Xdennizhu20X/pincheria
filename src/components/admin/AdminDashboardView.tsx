@@ -10,11 +10,15 @@ import {
   Check, 
   X, 
   Banknote, 
-  QrCode
+  QrCode,
+  Plus,
+  Sparkles,
+  Camera,
+  Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
-import { toggleProductActive } from "@/app/actions/menu";
+import { toggleProductActive, createProduct, CreateProductInput } from "@/app/actions/menu";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
@@ -36,6 +40,7 @@ interface Payment {
   method: string;
   amountReceived: number;
   changeGiven: number;
+  proofImage?: string | null;
 }
 
 interface PaidOrder {
@@ -77,6 +82,28 @@ interface AdminDashboardViewProps {
 export function AdminDashboardView({ stats, products: initialProducts }: AdminDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<"VENTAS" | "HISTORIAL" | "MENU">("VENTAS");
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  
+  // Modal de nuevo producto
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newProduct, setNewProduct] = useState<{
+    name: string;
+    category: "PINCHO" | "BEBIDA";
+    subCategory: string;
+    price: string;
+    description: string;
+    hasAccompaniments: boolean;
+  }>({
+    name: "",
+    category: "PINCHO",
+    subCategory: "",
+    price: "",
+    description: "",
+    hasAccompaniments: true,
+  });
+
+  // Modal para ver foto de comprobante
+  const [viewingProof, setViewingProof] = useState<string | null>(null);
 
   const handleToggleProduct = async (prod: Product) => {
     try {
@@ -96,20 +123,69 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
     }
   };
 
+  const handleCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProduct.name.trim()) {
+      toast.error("Ingresa el nombre del producto");
+      return;
+    }
+    const numPrice = parseFloat(newProduct.price);
+    if (isNaN(numPrice) || numPrice < 0) {
+      toast.error("Ingresa un precio válido");
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      const res = await createProduct({
+        name: newProduct.name,
+        category: newProduct.category,
+        subCategory: newProduct.subCategory || undefined,
+        price: numPrice,
+        description: newProduct.description || undefined,
+        hasAccompaniments: newProduct.category === "PINCHO" ? newProduct.hasAccompaniments : false,
+      });
+
+      if (res.success && res.product) {
+        toast.success(`¡${res.product.name} agregado al menú!`);
+        setProducts((prev) => [...prev, res.product]);
+        setIsAddModalOpen(false);
+        setNewProduct({
+          name: "",
+          category: "PINCHO",
+          subCategory: "",
+          price: "",
+          description: "",
+          hasAccompaniments: true,
+        });
+      } else {
+        toast.error(res.error || "No se pudo crear el producto");
+      }
+    } catch {
+      toast.error("Error al guardar producto");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-zinc-100 pb-28 max-w-md mx-auto sm:max-w-lg md:max-w-xl">
       {/* Header Admin */}
       <header className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20">
-            <BarChart3 className="w-5 h-5" />
-          </div>
+          {/* Logo del Restaurante */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="Logo La Ultima Oportunidad"
+            className="w-10 h-10 rounded-full object-cover border border-amber-400/40 shadow-lg shadow-orange-500/20"
+          />
           <div>
-            <h1 className="font-black text-white text-base leading-tight">
-              Gestión & Ventas
+            <h1 className="font-black text-white text-sm sm:text-base leading-tight tracking-tight uppercase">
+              La Última Oportunidad
             </h1>
-            <p className="text-[11px] font-bold text-zinc-400">
-              Métricas diarias y control del menú
+            <p className="text-[10px] font-bold text-amber-400">
+              Panel Administrativo & Ventas
             </p>
           </div>
         </div>
@@ -330,12 +406,29 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
                   <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-1">
                     <span className="flex items-center gap-1 font-bold">
                       {order.payment?.method === "EFECTIVO" ? (
-                        <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+                        <>
+                          <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Efectivo</span>
+                        </>
                       ) : (
-                        <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+                        <>
+                          <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Transferencia</span>
+                        </>
                       )}
-                      {order.payment?.method || "EFECTIVO"}
                     </span>
+
+                    {order.payment?.proofImage && (
+                      <button
+                        type="button"
+                        onClick={() => setViewingProof(order.payment?.proofImage || null)}
+                        className="px-2 py-0.5 rounded-lg bg-cyan-950/60 border border-cyan-700/50 text-cyan-300 font-bold text-[10px] flex items-center gap-1 active:scale-95"
+                      >
+                        <ImageIcon className="w-3 h-3" />
+                        <span>Ver Comprobante</span>
+                      </button>
+                    )}
+
                     {order.payment?.changeGiven ? (
                       <span>Vuelto: {formatCurrency(order.payment.changeGiven)}</span>
                     ) : null}
@@ -347,9 +440,19 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
         </div>
       )}
 
-      {/* TAB 3: GESTIÓN DE MENÚ */}
+      {/* TAB 3: GESTIÓN DE MENÚ Y AGREGAR NUEVO */}
       {activeTab === "MENU" && (
-        <div className="px-3.5 space-y-2.5">
+        <div className="px-3.5 space-y-3">
+          {/* Botón Destacado para Agregar Nuevo Producto al Menú */}
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-red-600 hover:from-orange-600 hover:to-red-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5 stroke-[3]" />
+            <span>Agregar Nuevo al Menú</span>
+          </button>
+
           <div className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-500 shrink-0" />
             <span>
@@ -410,6 +513,168 @@ export function AdminDashboardView({ stats, products: initialProducts }: AdminDa
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* MODAL PARA AGREGAR NUEVO AL MENÚ */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flame className="w-5 h-5 text-orange-500" />
+                <h2 className="font-black text-white text-base">
+                  Agregar Nuevo Plato o Bebida
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center active:scale-90 border border-zinc-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateProduct} className="p-4 overflow-y-auto space-y-3.5 flex-1 text-xs">
+              {/* Categoría */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Tipo de Producto:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct({ ...newProduct, category: "PINCHO", hasAccompaniments: true })}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl font-bold border transition-all text-center",
+                      newProduct.category === "PINCHO"
+                        ? "bg-orange-500/20 border-orange-500 text-orange-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                    )}
+                  >
+                    🍢 Pincho al Carbón
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct({ ...newProduct, category: "BEBIDA", hasAccompaniments: false })}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl font-bold border transition-all text-center",
+                      newProduct.category === "BEBIDA"
+                        ? "bg-cyan-500/20 border-cyan-500 text-cyan-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400"
+                    )}
+                  >
+                    🥤 Bebida Fría
+                  </button>
+                </div>
+              </div>
+
+              {/* Nombre */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Nombre:</label>
+                <input
+                  type="text"
+                  required
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  placeholder="Ej. Mixto Especial de Picaña o Bebida de 3L"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Precio ($ USD):</label>
+                <input
+                  type="number"
+                  step="0.05"
+                  required
+                  value={newProduct.price}
+                  onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                  placeholder="Ej. 3.50"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-orange-500 font-bold"
+                />
+              </div>
+
+              {/* Subcategoría (si es bebida) */}
+              {newProduct.category === "BEBIDA" && (
+                <div>
+                  <label className="font-bold text-zinc-300 block mb-1">Tamaño / Presentación:</label>
+                  <input
+                    type="text"
+                    value={newProduct.subCategory}
+                    onChange={(e) => setNewProduct({ ...newProduct, subCategory: e.target.value })}
+                    placeholder="Ej. Personal, 1 Litro, 2 Litros..."
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-cyan-500"
+                  />
+                </div>
+              )}
+
+              {/* Descripción */}
+              <div>
+                <label className="font-bold text-zinc-300 block mb-1">Descripción corta:</label>
+                <input
+                  type="text"
+                  value={newProduct.description}
+                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  placeholder="Ej. Asado con carbón de leña y adobo especial"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-white placeholder:text-zinc-600 focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              {/* ¿Incluye acompañamiento? */}
+              {newProduct.category === "PINCHO" && (
+                <div className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex items-center justify-between">
+                  <span className="font-bold text-zinc-300">¿Incluye las 4 guarniciones a elegir?</span>
+                  <input
+                    type="checkbox"
+                    checked={newProduct.hasAccompaniments}
+                    onChange={(e) => setNewProduct({ ...newProduct, hasAccompaniments: e.target.checked })}
+                    className="w-5 h-5 accent-orange-500"
+                  />
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isCreating ? <Sparkles className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  <span>{isCreating ? "Guardando..." : "Guardar en el Menú"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA VER FOTO DE COMPROBANTE DE TRANSFERENCIA */}
+      {viewingProof && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-cyan-400 uppercase tracking-wider">
+                Comprobante de Transferencia
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingProof(null)}
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center border border-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="rounded-2xl overflow-hidden border border-zinc-850 bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={viewingProof}
+                alt="Comprobante completo"
+                className="w-full max-h-[60vh] object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
 

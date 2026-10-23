@@ -6,7 +6,6 @@ import {
   BarChart3, 
   Smartphone, 
   ArrowRight, 
-  Flame,
   Sparkles
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -25,23 +24,28 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-black text-zinc-100 px-4 py-6 pb-28 max-w-md mx-auto sm:max-w-lg md:max-w-xl">
-      {/* Header móvil principal con Fuego y Brasas */}
+      {/* Header móvil principal con Logo Oficial */}
       <header className="text-center mb-6 pt-2">
-        <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 via-amber-500 to-red-600 text-white shadow-2xl fire-glow mb-3 border border-orange-400/40">
-          <Flame className="w-10 h-10 animate-pulse text-amber-200" />
+        <div className="relative inline-flex items-center justify-center w-28 h-28 rounded-full shadow-2xl fire-glow mb-3 p-1 bg-gradient-to-br from-amber-500 via-orange-500 to-red-600 border border-amber-400/40">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.jpg"
+            alt="Logo Pinchería La Última Oportunidad"
+            className="w-full h-full rounded-full object-cover"
+          />
         </div>
-        <h1 className="text-2xl font-black tracking-tight text-white uppercase">
-          Pinchos El Paisa
+        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
+          Pinchería La Última Oportunidad
         </h1>
-        <p className="text-xs font-bold text-orange-400 mt-1 flex items-center justify-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>Asador Tradicional al Carbón & Comandas</span>
+        <p className="text-xs font-bold text-amber-400 mt-1 flex items-center justify-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+          <span>Parrilla al Carbón • Comandas & Facturación Móvil</span>
         </p>
 
         {/* Status en vivo */}
         <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-950 border border-zinc-800 text-[11px] font-bold text-zinc-300">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          <span>Menú cargado ({productsCount} productos con fotos de parrilla)</span>
+          <span>Sistema en línea ({productsCount} productos en carta)</span>
         </div>
       </header>
 
@@ -66,7 +70,7 @@ export default async function HomePage() {
                 <ArrowRight className="w-4 h-4 text-orange-400 group-hover:translate-x-1 transition-transform" />
               </div>
               <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
-                Cuadrícula con fotos de pinchos, 4 guarniciones a 1 toque y comanda
+                Catálogo visual con fotos de pinchos, 4 guarniciones a 1 toque y carrito
               </p>
             </div>
           </div>
@@ -94,7 +98,7 @@ export default async function HomePage() {
                 <ArrowRight className="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform" />
               </div>
               <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
-                Cola FIFO de comandas, detalle de guarnición y despacho
+                Cola cronológica de comandas, detalle de guarnición y despacho
               </p>
             </div>
           </div>
@@ -112,7 +116,7 @@ export default async function HomePage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-black text-white text-base">Caja y Cobro</h3>
+                  <h3 className="font-black text-white text-base">Caja & Facturación</h3>
                   {pendingCashier > 0 && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-black font-black text-[10px]">
                       {pendingCashier} por cobrar
@@ -122,7 +126,7 @@ export default async function HomePage() {
                 <ArrowRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-1 transition-transform" />
               </div>
               <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
-                Calculadora de vuelto en efectivo y pase al historial de ventas
+                Efectivo con cálculo de vuelto o Transferencia con foto de comprobante
               </p>
             </div>
           </div>
@@ -143,7 +147,7 @@ export default async function HomePage() {
                 <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:translate-x-1 transition-transform" />
               </div>
               <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">
-                Ventas del día, mes, métricas y control de stock de productos
+                Ventas del día, mes, métricas y agregar platos nuevos a la carta
               </p>
             </div>
           </div>
@@ -156,7 +160,7 @@ export default async function HomePage() {
         <div>
           <p className="font-bold text-white">Diseño Táctil para Celular</p>
           <p className="mt-0.5 leading-relaxed text-zinc-400">
-            Optimizado para uso rápido con el pulgar. Puedes agregar la web a la pantalla de inicio de tu teléfono para usarla como una App nativa.
+            Optimizado para uso rápido con una sola mano desde el celular del mesero, pantalla en cocina o teléfono en caja.
           </p>
         </div>
       </footer>

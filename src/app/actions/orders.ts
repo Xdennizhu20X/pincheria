@@ -150,9 +150,10 @@ export async function getCashierOrders() {
 export async function markOrderAsPaid(
   orderId: string,
   paymentData: {
-    method: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA";
+    method: "EFECTIVO" | "TRANSFERENCIA";
     amountReceived: number;
     changeGiven: number;
+    proofImage?: string;
   }
 ) {
   try {
@@ -172,6 +173,7 @@ export async function markOrderAsPaid(
           method: paymentData.method,
           amountReceived: paymentData.amountReceived,
           changeGiven: paymentData.changeGiven,
+          proofImage: paymentData.proofImage || null,
         },
       });
 

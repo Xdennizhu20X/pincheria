@@ -56,8 +56,9 @@ model Payment {
   id             String   @id @default(cuid())
   orderId        String   @unique
   order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  method         String   @default("EFECTIVO") // EFECTIVO | TRANSFERENCIA | TARJETA
+  method         String   @default("EFECTIVO") // EFECTIVO | TRANSFERENCIA
   amountReceived Float
   changeGiven    Float    @default(0.0)
+  proofImage     String?  // Foto del comprobante de transferencia (opcional)
   createdAt      DateTime @default(now())
 }
