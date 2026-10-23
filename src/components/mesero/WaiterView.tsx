@@ -8,7 +8,8 @@ import {
   Sparkles, 
   Search,
   User,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { ProductImage } from "@/components/ui/ProductImage";
@@ -156,6 +157,7 @@ export function WaiterView({ products }: WaiterViewProps) {
   const handleClearCart = () => {
     setCartItems([]);
     setCustomerName("");
+    toast.info("Pedido cancelado");
   };
 
   return (
@@ -179,16 +181,29 @@ export function WaiterView({ products }: WaiterViewProps) {
           </div>
         </div>
 
-        {/* Input Rápido: ¿A nombre de quién? */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-amber-400 shadow-inner">
-          <User className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-          <input
-            type="text"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            placeholder="¿A nombre de quién?"
-            className="bg-transparent border-none outline-none text-white font-black placeholder:text-zinc-500 w-28 sm:w-36 text-xs"
-          />
+        {/* Input Rápido: ¿A nombre de quién? y Botón de Cancelar si hay pedido en curso */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-amber-400 shadow-inner">
+            <User className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="¿A nombre de quién?"
+              className="bg-transparent border-none outline-none text-white font-black placeholder:text-zinc-500 w-24 sm:w-32 text-xs"
+            />
+          </div>
+
+          {cartItems.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearCart}
+              title="Cancelar y vaciar pedido en curso"
+              className="p-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 active:scale-90 transition-transform flex items-center justify-center shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </header>
 

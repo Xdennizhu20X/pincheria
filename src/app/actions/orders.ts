@@ -128,6 +128,30 @@ export async function dispatchOrder(orderId: string) {
   }
 }
 
+export async function deleteOrder(orderId: string) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.deleteMany({
+        where: { orderId },
+      });
+      await tx.orderItem.deleteMany({
+        where: { orderId },
+      });
+      await tx.order.delete({
+        where: { id: orderId },
+      });
+    });
+
+    safeRevalidatePath("/cocina");
+    safeRevalidatePath("/caja");
+    safeRevalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Error al eliminar pedido:", error);
+    return { success: false, error: "No se pudo eliminar el pedido" };
+  }
+}
+
 export async function getCashierOrders() {
   try {
     const orders = await prisma.order.findMany({

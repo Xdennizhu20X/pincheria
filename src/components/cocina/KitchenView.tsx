@@ -7,11 +7,13 @@ import {
   CheckCircle2, 
   RefreshCw, 
   Flame, 
-  Utensils 
+  Utensils,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import gsap from "gsap";
-import { dispatchOrder, getKitchenOrders } from "@/app/actions/orders";
+import { dispatchOrder, deleteOrder, getKitchenOrders } from "@/app/actions/orders";
 import { formatCurrency, cn } from "@/lib/utils";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
@@ -45,6 +47,8 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [now, setNow] = useState<number>(Date.now());
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,6 +119,41 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
       }
     } catch {
       toast.error("Error al despachar comanda");
+    }
+  };
+
+  const handleDelete = async (orderId: string, orderNumber: number) => {
+    try {
+      setIsDeleting(true);
+      const card = document.getElementById(`order-card-${orderId}`);
+      if (card) {
+        gsap.to(card, {
+          opacity: 0,
+          x: -50,
+          scale: 0.9,
+          duration: 0.25,
+          ease: "power2.inOut",
+          onComplete: async () => {
+            setOrders((prev) => prev.filter((o) => o.id !== orderId));
+            setDeletingOrderId(null);
+            const res = await deleteOrder(orderId);
+            if (res.success) {
+              toast.info(`Comanda #${orderNumber} eliminada de cocina`);
+            } else {
+              toast.error(res.error || "No se pudo eliminar el pedido");
+            }
+          },
+        });
+      } else {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        setDeletingOrderId(null);
+        await deleteOrder(orderId);
+        toast.info(`Comanda #${orderNumber} eliminada de cocina`);
+      }
+    } catch {
+      toast.error("Error al eliminar la comanda");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -246,6 +285,15 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
                       <Clock className="w-3.5 h-3.5" />
                       <span>{minutesElapsed} min</span>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeletingOrderId(order.id)}
+                      title="Eliminar comanda"
+                      className="p-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/15 border border-zinc-700/80 active:scale-90 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
@@ -299,17 +347,47 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
                   )}
                 </div>
 
-                {/* Botón de Despacho */}
-                <div className="p-3.5 bg-zinc-900/60 border-t border-zinc-800">
-                  <button
-                    type="button"
-                    onClick={() => handleDispatch(order.id, order.orderNumber)}
-                    className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Despachar Comanda (Mover a Cobro)</span>
-                  </button>
-                </div>
+                {/* Botón de Despacho o Confirmación de Eliminación */}
+                {deletingOrderId === order.id ? (
+                  <div className="p-3.5 bg-rose-950/70 border-t border-rose-800/80 space-y-2.5 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2 text-rose-200">
+                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <span className="text-xs font-extrabold leading-tight">
+                        ¿Eliminar comanda #{order.orderNumber} ({order.customerName || order.tableNumber})?
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => setDeletingOrderId(null)}
+                        className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700 active:scale-95 transition-transform"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        onClick={() => handleDelete(order.id, order.orderNumber)}
+                        className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{isDeleting ? "Eliminando..." : "Sí, Eliminar"}</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-zinc-900/60 border-t border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={() => handleDispatch(order.id, order.orderNumber)}
+                      className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Despachar Comanda (Mover a Cobro)</span>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })

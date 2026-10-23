@@ -45,11 +45,19 @@ export function CartDrawer({
 }: CartDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const totalItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
   if (items.length === 0) return null;
+
+  const handleConfirmCancel = () => {
+    onClearCart();
+    setShowCancelConfirm(false);
+    setIsOpen(false);
+    toast.info("Pedido cancelado y descartado");
+  };
 
   const handleSubmitOrder = async () => {
     const trimmedName = customerName.trim();
@@ -133,13 +141,27 @@ export function CartDrawer({
                   Comanda ({totalItemsCount} ítems)
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center active:scale-90 transition-transform border border-zinc-800"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="px-2.5 py-1 rounded-xl bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 border border-rose-500/30 text-xs font-bold flex items-center gap-1 active:scale-95 transition-all"
+                  title="Cancelar y vaciar pedido"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Cancelar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCancelConfirm(false);
+                    setIsOpen(false);
+                  }}
+                  className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center active:scale-90 transition-transform border border-zinc-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Configuración de: ¿A nombre de quién? */}
@@ -249,25 +271,60 @@ export function CartDrawer({
                 </span>
               </div>
 
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleSubmitOrder}
-                className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <Sparkles className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-                <span>
-                  {isSubmitting
-                    ? "Enviando al asador..."
-                    : customerName.trim()
-                    ? `Enviar Comanda de ${customerName.trim()} • ${formatCurrency(totalAmount)}`
-                    : `Ingresar Nombre para Enviar • ${formatCurrency(totalAmount)}`}
-                </span>
-              </button>
+              {showCancelConfirm ? (
+                <div className="p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-2xl space-y-2.5 text-center animate-in fade-in zoom-in-95 duration-150">
+                  <p className="text-xs font-bold text-rose-200">
+                    ¿Estás seguro de cancelar este pedido? Se vaciarán los {totalItemsCount} productos.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelConfirm(false)}
+                      className="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold border border-zinc-700 active:scale-95 transition-transform"
+                    >
+                      Continuar pidiendo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmCancel}
+                      className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 active:scale-95 transition-transform"
+                    >
+                      Sí, Cancelar Pedido
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={handleSubmitOrder}
+                    className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <Sparkles className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                    <span>
+                      {isSubmitting
+                        ? "Enviando al asador..."
+                        : customerName.trim()
+                        ? `Enviar Comanda de ${customerName.trim()} • ${formatCurrency(totalAmount)}`
+                        : `Ingresar Nombre para Enviar • ${formatCurrency(totalAmount)}`}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="w-full py-2 text-xs font-bold text-rose-400/80 hover:text-rose-300 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Cancelar / Descartar este pedido</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
