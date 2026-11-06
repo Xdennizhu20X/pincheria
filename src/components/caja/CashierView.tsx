@@ -13,12 +13,15 @@ import {
   RefreshCw,
   Camera,
   Image as ImageIcon,
-  Eye
+  Eye,
+  Pencil,
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { markOrderAsPaid, getCashierOrders } from "@/app/actions/orders";
 import { formatCurrency, cn } from "@/lib/utils";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { EditOrderModal, Product, Accompaniment } from "@/components/orders/EditOrderModal";
 
 interface OrderItem {
   id: string;
@@ -37,6 +40,7 @@ interface Order {
   waiterName: string;
   status: string;
   total: number;
+  notes?: string | null;
   createdAt: Date;
   dispatchedAt: Date | null;
   items: OrderItem[];
@@ -44,10 +48,17 @@ interface Order {
 
 interface CashierViewProps {
   initialOrders: Order[];
+  products?: Product[];
+  accompaniments?: Accompaniment[];
 }
 
-export function CashierView({ initialOrders }: CashierViewProps) {
+export function CashierView({ 
+  initialOrders,
+  products = [],
+  accompaniments = []
+}: CashierViewProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"EFECTIVO" | "TRANSFERENCIA">("EFECTIVO");
@@ -308,15 +319,27 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                 ))}
               </div>
 
-              {/* Botón de Cobro Directo */}
-              <button
-                type="button"
-                onClick={() => handleOpenPayment(order)}
-                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
-              >
-                <CircleDollarSign className="w-4 h-4" />
-                <span>Cobrar Cuenta • {formatCurrency(order.total)}</span>
-              </button>
+              {/* Acciones: Editar / Agregar y Cobrar */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditingOrder(order)}
+                  className="py-3 px-3 rounded-2xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/40 text-amber-400 text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] shrink-0"
+                  title="Editar pedido o agregar productos"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Editar / Agregar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenPayment(order)}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                >
+                  <CircleDollarSign className="w-4 h-4" />
+                  <span>Cobrar • {formatCurrency(order.total)}</span>
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -355,6 +378,20 @@ export function CashierView({ initialOrders }: CashierViewProps) {
                 <span className="text-3xl font-black text-amber-400">
                   {formatCurrency(selectedOrder.total)}
                 </span>
+                <div className="mt-2 pt-2 border-t border-zinc-800/80 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ord = selectedOrder;
+                      setSelectedOrder(null);
+                      setEditingOrder(ord);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 active:scale-95 transition-transform"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>¿Editar o agregar más productos a la cuenta?</span>
+                  </button>
+                </div>
               </div>
 
               {/* Selector de Método de Pago: SOLO EFECTIVO Y TRANSFERENCIA */}
@@ -539,6 +576,59 @@ export function CashierView({ initialOrders }: CashierViewProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de edición y adición de productos */}
+      {editingOrder && (
+        <EditOrderModal
+          isOpen={!!editingOrder}
+          onClose={() => setEditingOrder(null)}
+          order={editingOrder}
+          products={products}
+          accompaniments={accompaniments}
+          mode="caja"
+          onSaveSuccess={(updatedOrder) => {
+            if (updatedOrder.status === "PENDIENTE_COCINA") {
+              // Si se envió de vuelta a cocina, quitarlo de la lista de caja
+              setOrders((prev) => prev.filter((o) => o.id !== updatedOrder.id));
+              if (selectedOrder?.id === updatedOrder.id) {
+                setSelectedOrder(null);
+              }
+            } else {
+              // Permanece en caja: actualizar orden con nuevos items y total
+              const parsed: Order = {
+                id: updatedOrder.id,
+                orderNumber: updatedOrder.orderNumber,
+                tableNumber: updatedOrder.tableNumber,
+                customerName: updatedOrder.customerName,
+                waiterName: updatedOrder.waiterName || "Mesero",
+                status: updatedOrder.status,
+                total: updatedOrder.total,
+                notes: updatedOrder.notes,
+                createdAt: new Date(updatedOrder.createdAt || Date.now()),
+                dispatchedAt: updatedOrder.dispatchedAt ? new Date(updatedOrder.dispatchedAt) : null,
+                items: updatedOrder.items.map((it) => ({
+                  id: it.id || `${Date.now()}`,
+                  productName: it.productName,
+                  quantity: it.quantity,
+                  unitPrice: it.unitPrice,
+                  accompaniment: it.accompaniment || null,
+                  notes: it.notes || null,
+                })),
+              };
+
+              setOrders((prev) =>
+                prev.map((o) => (o.id === updatedOrder.id ? parsed : o))
+              );
+
+              if (selectedOrder?.id === updatedOrder.id) {
+                setSelectedOrder(parsed);
+                setAmountReceived(parsed.total.toFixed(2));
+              }
+            }
+            setEditingOrder(null);
+          }}
+        />
       )}
 
       <BottomNav />

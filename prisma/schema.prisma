@@ -25,19 +25,37 @@ model Product {
 }
 
 model Order {
-  id           String      @id @default(cuid())
-  orderNumber  Int         @unique
-  tableNumber  String      // "Mesa 1", "Mesa 2", "Para Llevar", etc.
+  id           String        @id @default(cuid())
+  orderNumber  Int           @unique
+  tableNumber  String        // "Mesa 1", "Mesa 2", "Para Llevar", etc.
   customerName String?
-  waiterName   String      @default("Mesero")
-  status       String      @default("PENDIENTE_COCINA") // PENDIENTE_COCINA | DESPACHADO | PAGADO | CANCELADO
-  total        Float       @default(0.0)
+  waiterName   String        @default("Mesero")
+  status       String        @default("PENDIENTE_COCINA") // PENDIENTE_COCINA | DESPACHADO | PAGADO | CANCELADO
+  total        Float         @default(0.0)
   notes        String?
-  createdAt    DateTime    @default(now())
+  createdAt    DateTime      @default(now())
   dispatchedAt DateTime?
   paidAt       DateTime?
+  closureId    String?
+  closure      SalesClosure? @relation(fields: [closureId], references: [id], onDelete: SetNull)
   items        OrderItem[]
   payment      Payment?
+}
+
+model SalesClosure {
+  id            String   @id @default(cuid())
+  closureNumber Int      @unique
+  openedAt      DateTime @default(now())
+  closedAt      DateTime @default(now())
+  totalSales    Float    @default(0.0)
+  totalCash     Float    @default(0.0)
+  totalTransfer Float    @default(0.0)
+  ordersCount   Int      @default(0)
+  itemsSummary  String?  // JSON con resumen de platos vendidos: [{ name, quantity, revenue }]
+  notes         String?
+  closedBy      String   @default("Administrador")
+  createdAt     DateTime @default(now())
+  orders        Order[]
 }
 
 model OrderItem {

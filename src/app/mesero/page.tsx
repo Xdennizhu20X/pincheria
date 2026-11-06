@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { getAccompaniments } from "@/app/actions/menu";
+import { getActiveOrders } from "@/app/actions/orders";
 import { WaiterView } from "@/components/mesero/WaiterView";
 
 export const dynamic = "force-dynamic";
 
 export default async function MeseroPage() {
-  const [products, accompaniments] = await Promise.all([
+  const [products, accompaniments, activeOrders] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       orderBy: [
@@ -14,7 +15,14 @@ export default async function MeseroPage() {
       ],
     }),
     getAccompaniments(true),
+    getActiveOrders(),
   ]);
 
-  return <WaiterView products={products} initialAccompaniments={accompaniments} />;
+  return (
+    <WaiterView
+      products={products}
+      initialAccompaniments={accompaniments}
+      initialActiveOrders={activeOrders}
+    />
+  );
 }

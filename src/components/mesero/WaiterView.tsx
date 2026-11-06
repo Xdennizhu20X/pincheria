@@ -9,7 +9,12 @@ import {
   Search,
   User,
   Clock,
-  Trash2
+  Trash2,
+  Pencil,
+  ChefHat,
+  CircleDollarSign,
+  ChevronRight,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { ProductImage } from "@/components/ui/ProductImage";
@@ -17,6 +22,8 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { AccompanimentModal } from "./AccompanimentModal";
 import { CartDrawer, CartItem } from "./CartDrawer";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { EditOrderModal, Order } from "@/components/orders/EditOrderModal";
+import { getActiveOrders } from "@/app/actions/orders";
 
 interface Product {
   id: string;
@@ -39,9 +46,18 @@ interface Accompaniment {
 interface WaiterViewProps {
   products: Product[];
   initialAccompaniments?: Accompaniment[];
+  initialActiveOrders?: Order[];
 }
 
-export function WaiterView({ products, initialAccompaniments = [] }: WaiterViewProps) {
+export function WaiterView({ 
+  products, 
+  initialAccompaniments = [],
+  initialActiveOrders = []
+}: WaiterViewProps) {
+  const [activeOrders, setActiveOrders] = useState<Order[]>(initialActiveOrders);
+  const [showActiveOrdersModal, setShowActiveOrdersModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+
   const [selectedCategory, setSelectedCategory] = useState<"TODOS" | "PINCHO" | "BEBIDA">("PINCHO");
   const [selectedDrinkSize, setSelectedDrinkSize] = useState<string>("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,6 +68,20 @@ export function WaiterView({ products, initialAccompaniments = [] }: WaiterViewP
   
   // Modal de guarnición para pinchos
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
+
+  // Polling de pedidos activos
+  React.useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await getActiveOrders();
+        setActiveOrders(fresh as unknown as Order[]);
+      } catch (err) {
+        console.error("Error al actualizar pedidos activos:", err);
+      }
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Filtrado de productos
   const filteredProducts = products.filter((prod) => {
@@ -216,6 +246,31 @@ export function WaiterView({ products, initialAccompaniments = [] }: WaiterViewP
 
       {/* Buscador y Filtros Rápidos */}
       <div className="p-3.5 space-y-3">
+        {/* Acceso a comanda existente para editar o agregar cosas */}
+        {activeOrders.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowActiveOrdersModal(true)}
+            className="w-full p-3 rounded-2xl bg-gradient-to-r from-amber-950/40 via-zinc-900 to-zinc-950 border border-amber-500/30 hover:border-amber-500/60 flex items-center justify-between text-xs transition-all active:scale-[0.98] shadow-md"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+              <div className="text-left">
+                <span className="font-black text-amber-300 block leading-tight">
+                  Editar Comanda Activa ({activeOrders.length})
+                </span>
+                <span className="text-[10px] text-zinc-400 font-semibold">
+                  Toca para agregar más cosas a una mesa en cocina o caja
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-amber-400 font-black text-xs shrink-0">
+              <Pencil className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4 text-zinc-500" />
+            </div>
+          </button>
+        )}
+
         {/* Input Buscador */}
         <div className="relative">
           <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -388,6 +443,101 @@ export function WaiterView({ products, initialAccompaniments = [] }: WaiterViewP
         onRemoveItem={handleRemoveItem}
         onClearCart={handleClearCart}
       />
+
+      {/* Modal de Lista de Comandas Activas para elegir cuál editar */}
+      {showActiveOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                  Comandas en Curso
+                </span>
+                <h3 className="font-black text-white text-base">
+                  Selecciona la mesa o cliente a editar
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowActiveOrdersModal(false)}
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center border border-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-2.5 flex-1">
+              {activeOrders.length === 0 ? (
+                <div className="p-8 text-center text-zinc-500 text-xs">
+                  No hay comandas activas en este momento.
+                </div>
+              ) : (
+                activeOrders.map((ord) => (
+                  <div
+                    key={ord.id}
+                    onClick={() => {
+                      setShowActiveOrdersModal(false);
+                      setEditingOrder(ord);
+                    }}
+                    className="p-3.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/50 rounded-2xl flex items-center justify-between gap-3 cursor-pointer active:scale-[0.98] transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-orange-500/20 text-orange-400 font-black text-xs flex items-center justify-center border border-orange-500/30">
+                          #{ord.orderNumber}
+                        </span>
+                        <h4 className="font-black text-white text-sm">
+                          {ord.customerName || ord.tableNumber}
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                            ord.status === "PENDIENTE_COCINA"
+                              ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                              : "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                          )}
+                        >
+                          {ord.status === "PENDIENTE_COCINA" ? "En Cocina" : "En Caja"}
+                        </span>
+                        <span className="text-[11px] text-zinc-400">
+                          {ord.items.reduce((s, i) => s + i.quantity, 0)} ítems
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-2">
+                      <span className="font-black text-amber-400 text-sm">
+                        {formatCurrency(ord.total)}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-zinc-500" />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edición de Comanda */}
+      {editingOrder && (
+        <EditOrderModal
+          isOpen={!!editingOrder}
+          onClose={() => setEditingOrder(null)}
+          order={editingOrder}
+          products={products}
+          accompaniments={initialAccompaniments}
+          mode={editingOrder.status === "DESPACHADO" ? "caja" : "cocina"}
+          onSaveSuccess={(updated) => {
+            setActiveOrders((prev) =>
+              prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
+            );
+            setEditingOrder(null);
+          }}
+        />
+      )}
 
       <BottomNav />
     </div>

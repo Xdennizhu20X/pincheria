@@ -9,13 +9,16 @@ import {
   Flame, 
   Utensils,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Pencil,
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import gsap from "gsap";
 import { dispatchOrder, deleteOrder, getKitchenOrders } from "@/app/actions/orders";
 import { formatCurrency, cn } from "@/lib/utils";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { EditOrderModal, Product, Accompaniment } from "@/components/orders/EditOrderModal";
 
 interface OrderItem {
   id: string;
@@ -41,10 +44,17 @@ interface Order {
 
 interface KitchenViewProps {
   initialOrders: Order[];
+  products?: Product[];
+  accompaniments?: Accompaniment[];
 }
 
-export function KitchenView({ initialOrders }: KitchenViewProps) {
+export function KitchenView({ 
+  initialOrders,
+  products = [],
+  accompaniments = []
+}: KitchenViewProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [now, setNow] = useState<number>(Date.now());
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
@@ -288,6 +298,16 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
 
                     <button
                       type="button"
+                      onClick={() => setEditingOrder(order)}
+                      title="Editar comanda / Agregar más cosas"
+                      className="px-2 py-1.5 rounded-xl bg-amber-500/15 text-amber-300 hover:text-amber-200 hover:bg-amber-500/25 border border-amber-500/30 active:scale-90 transition-all flex items-center gap-1 text-xs font-bold"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setDeletingOrderId(order.id)}
                       title="Eliminar comanda"
                       className="p-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/15 border border-zinc-700/80 active:scale-90 transition-all"
@@ -345,6 +365,15 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
                       {order.notes}
                     </div>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(order)}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/40 text-amber-400 text-xs font-black flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Editar o Agregar Más Cosas al Pedido</span>
+                  </button>
                 </div>
 
                 {/* Botón de Despacho o Confirmación de Eliminación */}
@@ -393,6 +422,40 @@ export function KitchenView({ initialOrders }: KitchenViewProps) {
           })
         )}
       </div>
+
+      {/* Modal de edición y agregado de productos */}
+      {editingOrder && (
+        <EditOrderModal
+          isOpen={!!editingOrder}
+          onClose={() => setEditingOrder(null)}
+          order={editingOrder}
+          products={products}
+          accompaniments={accompaniments}
+          mode="cocina"
+          onSaveSuccess={(updatedOrder) => {
+            setOrders((prev) =>
+              prev.map((o) =>
+                o.id === updatedOrder.id
+                  ? {
+                      ...o,
+                      ...updatedOrder,
+                      createdAt: new Date(updatedOrder.createdAt || o.createdAt),
+                      items: updatedOrder.items.map((it) => ({
+                        id: it.id || `${Date.now()}`,
+                        productName: it.productName,
+                        quantity: it.quantity,
+                        unitPrice: it.unitPrice,
+                        accompaniment: it.accompaniment || null,
+                        notes: it.notes || null,
+                      })),
+                    }
+                  : o
+              )
+            );
+            setEditingOrder(null);
+          }}
+        />
+      )}
 
       <BottomNav />
     </div>

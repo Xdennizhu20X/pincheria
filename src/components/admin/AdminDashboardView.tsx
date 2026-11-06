@@ -18,7 +18,16 @@ import {
   Trash2,
   AlertTriangle,
   Utensils,
-  Pencil
+  Pencil,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Search,
+  RotateCcw,
+  CheckCircle2,
+  FileText,
+  ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -32,7 +41,12 @@ import {
   toggleAccompanimentActive,
   deleteAccompaniment
 } from "@/app/actions/menu";
-import { resetSalesHistory } from "@/app/actions/orders";
+import { 
+  resetSalesHistory, 
+  closeSalesShift, 
+  getFilteredSalesHistory,
+  SalesHistoryFilter 
+} from "@/app/actions/orders";
 import { ProductImage } from "@/components/ui/ProductImage";
 import { BottomNav } from "@/components/navigation/BottomNav";
 
@@ -64,8 +78,34 @@ interface PaidOrder {
   customerName: string | null;
   total: number;
   paidAt: Date | null;
+  closureId?: string | null;
+  closure?: { closureNumber: number } | null;
   items: OrderItem[];
   payment: Payment | null;
+}
+
+export interface ClosureRecord {
+  id: string;
+  closureNumber: number;
+  openedAt: Date;
+  closedAt: Date;
+  totalSales: number;
+  totalCash: number;
+  totalTransfer: number;
+  ordersCount: number;
+  itemsSummary: string | null;
+  notes: string | null;
+  closedBy?: string;
+}
+
+export interface CurrentShiftData {
+  totalSales: number;
+  totalCash: number;
+  totalTransfer: number;
+  ordersCount: number;
+  averageTicket: number;
+  topProducts: TopProduct[];
+  orders: PaidOrder[];
 }
 
 interface Product {
@@ -89,6 +129,9 @@ interface Accompaniment {
 
 interface AdminDashboardViewProps {
   stats: {
+    currentShift?: CurrentShiftData;
+    lastClosure?: ClosureRecord | null;
+    recentClosures?: ClosureRecord[];
     totalSalesToday: number;
     ordersCountToday: number;
     averageTicketToday: number;
@@ -116,6 +159,175 @@ export function AdminDashboardView({
   const [isCreatingAcc, setIsCreatingAcc] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Estado del turno actual (Venta Actual)
+  const [currentShift, setCurrentShift] = useState<CurrentShiftData>(
+    stats?.currentShift || {
+      totalSales: 0,
+      totalCash: 0,
+      totalTransfer: 0,
+      ordersCount: 0,
+      averageTicket: 0,
+      topProducts: [],
+      orders: [],
+    }
+  );
+
+  // Cierres y Último Cierre
+  const [lastClosure, setLastClosure] = useState<ClosureRecord | null>(
+    stats?.lastClosure
+      ? {
+          ...stats.lastClosure,
+          openedAt: new Date(stats.lastClosure.openedAt),
+          closedAt: new Date(stats.lastClosure.closedAt),
+        }
+      : null
+  );
+  const [closuresList, setClosuresList] = useState<ClosureRecord[]>(
+    (stats?.recentClosures || []).map((c) => ({
+      ...c,
+      openedAt: new Date(c.openedAt),
+      closedAt: new Date(c.closedAt),
+    }))
+  );
+
+  // Modal para Cierre de Turno
+  const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
+  const [closureNotes, setClosureNotes] = useState("");
+  const [isClosingShift, setIsClosingShift] = useState(false);
+
+  // Sub-tabs y filtros en "HISTORIAL"
+  const [historySubTab, setHistorySubTab] = useState<"ORDENES" | "CIERRES">("ORDENES");
+  const [dateRangeType, setDateRangeType] = useState<"HOY" | "AYER" | "SEMANA" | "MES" | "TODOS" | "CUSTOM">("HOY");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<"TODOS" | "EFECTIVO" | "TRANSFERENCIA">("TODOS");
+  const [searchHistoryQuery, setSearchHistoryQuery] = useState("");
+  const [isLoadingFiltered, setIsLoadingFiltered] = useState(false);
+
+  // Datos filtrados para el historial
+  const [filteredOrders, setFilteredOrders] = useState<PaidOrder[]>(stats?.todayOrders || []);
+  const [filteredClosures, setFilteredClosures] = useState<ClosureRecord[]>(
+    (stats?.recentClosures || []).map((c) => ({
+      ...c,
+      openedAt: new Date(c.openedAt),
+      closedAt: new Date(c.closedAt),
+    }))
+  );
+  const [filteredSummary, setFilteredSummary] = useState({
+    totalSales: stats?.totalSalesToday ?? 0,
+    totalCash: (stats?.todayOrders || []).reduce(
+      (s, o) => s + (o.payment?.method === "EFECTIVO" ? o.total : 0),
+      0
+    ),
+    totalTransfer: (stats?.todayOrders || []).reduce(
+      (s, o) => s + (o.payment?.method === "TRANSFERENCIA" ? o.total : 0),
+      0
+    ),
+    ordersCount: stats?.ordersCountToday ?? 0,
+    averageTicket: stats?.averageTicketToday ?? 0,
+    topProducts: stats?.topProducts || [],
+  });
+
+  // Modal para ver detalle de un cierre específico
+  const [selectedClosure, setSelectedClosure] = useState<ClosureRecord | null>(null);
+
+  // Cierre de ventas del turno
+  const handleExecuteCloseShift = async () => {
+    try {
+      setIsClosingShift(true);
+      const res = await closeSalesShift({
+        notes: closureNotes.trim() || undefined,
+        closedBy: "Administrador",
+      });
+
+      if (res.success && res.closure) {
+        toast.success(`¡Cierre de Ventas #${res.closure.closureNumber} completado!`, {
+          description: `Total cerrado: ${formatCurrency(res.closure.totalSales)} • Turno reiniciado a $0.00`,
+        });
+
+        const newClosureRecord: ClosureRecord = {
+          ...res.closure,
+          openedAt: new Date(res.closure.openedAt),
+          closedAt: new Date(res.closure.closedAt),
+        };
+        setLastClosure(newClosureRecord);
+        setClosuresList((prev) => [newClosureRecord, ...prev]);
+
+        // Reiniciar turno actual a cero ("se queda lista para empezar la otra venta")
+        setCurrentShift({
+          totalSales: 0,
+          totalCash: 0,
+          totalTransfer: 0,
+          ordersCount: 0,
+          averageTicket: 0,
+          topProducts: [],
+          orders: [],
+        });
+
+        setIsCloseShiftModalOpen(false);
+        setClosureNotes("");
+
+        // Refrescar historial
+        handleApplyFilter("HOY");
+      } else {
+        toast.error(res.error || "No se pudo cerrar el turno");
+      }
+    } catch {
+      toast.error("Ocurrió un error al procesar el cierre");
+    } finally {
+      setIsClosingShift(false);
+    }
+  };
+
+  // Filtrado de historial
+  const handleApplyFilter = async (
+    rangeOverride?: "HOY" | "AYER" | "SEMANA" | "MES" | "TODOS" | "CUSTOM",
+    paymentOverride?: "TODOS" | "EFECTIVO" | "TRANSFERENCIA"
+  ) => {
+    const range = rangeOverride || dateRangeType;
+    const payment = paymentOverride || paymentMethodFilter;
+
+    try {
+      setIsLoadingFiltered(true);
+      const res = await getFilteredSalesHistory({
+        rangeType: range,
+        startDate: customStartDate || undefined,
+        endDate: customEndDate || undefined,
+        paymentMethod: payment,
+        searchQuery: searchHistoryQuery || undefined,
+      });
+
+      if (res) {
+        setFilteredOrders(
+          res.orders.map((o) => ({
+            ...o,
+            paidAt: o.paidAt ? new Date(o.paidAt) : null,
+          }))
+        );
+        setFilteredClosures(
+          res.closures.map((c) => ({
+            ...c,
+            openedAt: new Date(c.openedAt),
+            closedAt: new Date(c.closedAt),
+          }))
+        );
+        setFilteredSummary({
+          totalSales: res.totalSales,
+          totalCash: res.totalCash,
+          totalTransfer: res.totalTransfer,
+          ordersCount: res.ordersCount,
+          averageTicket: res.averageTicket,
+          topProducts: res.topProducts,
+        });
+      }
+    } catch (err) {
+      console.error("Error al filtrar historial:", err);
+      toast.error("No se pudo cargar el historial filtrado");
+    } finally {
+      setIsLoadingFiltered(false);
+    }
+  };
   
   // Modal de nuevo producto
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -492,17 +704,155 @@ export function AdminDashboardView({
       {/* TAB 1: VENTAS & MÉTRICAS */}
       {activeTab === "VENTAS" && (
         <div className="px-3.5 space-y-3.5">
-          {/* Tarjetas KPI */}
+          {/* VENTA ACTUAL / TURNO EN CURSO */}
+          <div className="p-4 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 rounded-3xl border-2 border-orange-500/40 shadow-2xl space-y-3.5 relative overflow-hidden">
+            {/* Glow decorativo */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "w-2.5 h-2.5 rounded-full shrink-0",
+                    currentShift.ordersCount > 0 ? "bg-emerald-400 animate-pulse" : "bg-zinc-600"
+                  )}
+                />
+                <span className="text-[11px] font-black uppercase tracking-wider text-orange-400">
+                  Venta Actual • Turno en Curso
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-zinc-400 bg-zinc-900 px-2.5 py-1 rounded-full border border-zinc-800">
+                {currentShift.ordersCount}{" "}
+                {currentShift.ordersCount === 1 ? "pedido cobrado" : "pedidos cobrados"}
+              </span>
+            </div>
+
+            <div className="relative z-10">
+              <span className="text-3xl sm:text-4xl font-black text-white tracking-tight block">
+                {formatCurrency(currentShift.totalSales)}
+              </span>
+              <span className="text-xs text-zinc-400 font-medium">
+                {currentShift.ordersCount > 0
+                  ? "Total cobrado en este turno (pendiente de cierre)"
+                  : "Turno listo y en espera de nuevas ventas"}
+              </span>
+            </div>
+
+            {/* Desglose Efectivo vs Transferencia en este turno */}
+            <div className="grid grid-cols-2 gap-2 text-xs relative z-10">
+              <div className="p-2.5 bg-black/60 border border-zinc-800 rounded-2xl flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <Banknote className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 font-bold block leading-none">
+                    Efectivo
+                  </span>
+                  <span className="font-black text-emerald-400 text-sm">
+                    {formatCurrency(currentShift.totalCash)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-black/60 border border-zinc-800 rounded-2xl flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 font-bold block leading-none">
+                    Transferencia
+                  </span>
+                  <span className="font-black text-cyan-400 text-sm">
+                    {formatCurrency(currentShift.totalTransfer)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Platos vendidos en este turno */}
+            {currentShift.topProducts.length > 0 && (
+              <div className="p-3 bg-black/40 border border-zinc-800/80 rounded-2xl space-y-1.5 relative z-10">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                  Platos y bebidas vendidos en este turno:
+                </span>
+                <div className="space-y-1 text-xs">
+                  {currentShift.topProducts.slice(0, 5).map((p) => (
+                    <div key={p.name} className="flex justify-between text-zinc-300">
+                      <span className="line-clamp-1">
+                        <strong className="text-orange-400">{p.quantity}x</strong> {p.name}
+                      </span>
+                      <span className="font-bold text-zinc-400">{formatCurrency(p.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* BOTÓN CERRAR VENTAS */}
+            <button
+              type="button"
+              onClick={() => setIsCloseShiftModalOpen(true)}
+              disabled={currentShift.ordersCount === 0}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-orange-600 hover:from-red-700 hover:to-orange-700 active:scale-[0.98] transition-all text-white font-black text-sm shadow-xl shadow-rose-600/30 flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none relative z-10 cursor-pointer"
+            >
+              <Lock className="w-4 h-4" />
+              <span>
+                {currentShift.ordersCount > 0
+                  ? `Cerrar Ventas de Este Turno (${formatCurrency(currentShift.totalSales)})`
+                  : "Turno en Cero • Listo para Nuevas Ventas"}
+              </span>
+            </button>
+          </div>
+
+          {/* ÚLTIMO CIERRE REALIZADO (Si existe) */}
+          {lastClosure && (
+            <div className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-3xl flex items-center justify-between text-xs shadow-md">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-zinc-900 text-amber-400 border border-zinc-800 flex items-center justify-center font-black shrink-0">
+                  #{lastClosure.closureNumber}
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                    Último Cierre Oficial
+                  </span>
+                  <span className="font-extrabold text-white">
+                    {new Date(lastClosure.closedAt).toLocaleDateString("es-EC", {
+                      day: "numeric",
+                      month: "short",
+                    })}{" "}
+                    a las{" "}
+                    {new Date(lastClosure.closedAt).toLocaleTimeString("es-EC", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span className="text-[11px] text-zinc-400 block mt-0.5">
+                    {lastClosure.ordersCount} comandas • {formatCurrency(lastClosure.totalSales)}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedClosure(lastClosure)}
+                className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 text-amber-400 border border-zinc-800 text-[11px] font-black active:scale-95 transition-transform shrink-0"
+              >
+                Ver Detalle
+              </button>
+            </div>
+          )}
+
+          {/* Tarjetas KPI Acumulado Hoy */}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="p-4 bg-zinc-950 rounded-3xl border border-zinc-800 space-y-1 shadow-lg">
               <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
-                Ventas de Hoy
+                Total Ventas Hoy
               </span>
               <span className="text-2xl font-black text-emerald-400 block tracking-tight">
                 {formatCurrency(stats?.totalSalesToday ?? 0)}
               </span>
               <span className="text-[11px] font-bold text-zinc-500 block">
-                {stats?.ordersCountToday ?? 0} pedidos cobrados
+                {stats?.ordersCountToday ?? 0} pedidos en el día
               </span>
             </div>
 
@@ -558,11 +908,11 @@ export function AdminDashboardView({
             </div>
           </div>
 
-          {/* Platos más Vendidos */}
+          {/* Platos más Vendidos del Mes */}
           <div className="p-4 bg-zinc-950 rounded-3xl border border-zinc-800 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
-                Platos y Bebidas Más Vendidos
+                Platos y Bebidas Más Vendidos del Mes
               </h3>
               <TrendingUp className="w-4 h-4 text-orange-500" />
             </div>
@@ -597,11 +947,428 @@ export function AdminDashboardView({
         </div>
       )}
 
-      {/* TAB 2: HISTORIAL DE PEDIDOS */}
+      {/* TAB 2: HISTORIAL GENERAL & CIERRES */}
       {activeTab === "HISTORIAL" && (
-        <div className="px-3.5 space-y-3">
-          {/* Card de Mantenimiento / Reinicio de Pruebas */}
-          <div className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-2xl space-y-2.5">
+        <div className="px-3.5 space-y-3.5">
+          {/* Sub-Tabs: Comandas Cobradas vs Cierres de Ventas */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-900/90 rounded-2xl border border-zinc-800 text-xs font-black">
+            <button
+              type="button"
+              onClick={() => setHistorySubTab("ORDENES")}
+              className={cn(
+                "py-2.5 rounded-xl transition-all active:scale-95 text-center flex items-center justify-center gap-1.5",
+                historySubTab === "ORDENES"
+                  ? "bg-amber-500 text-black shadow-md shadow-amber-500/20"
+                  : "text-zinc-400 hover:text-white"
+              )}
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>Comandas ({filteredOrders.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistorySubTab("CIERRES")}
+              className={cn(
+                "py-2.5 rounded-xl transition-all active:scale-95 text-center flex items-center justify-center gap-1.5",
+                historySubTab === "CIERRES"
+                  ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20"
+                  : "text-zinc-400 hover:text-white"
+              )}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Cierres Oficiales ({filteredClosures.length})</span>
+            </button>
+          </div>
+
+          {/* FILTRO DE FECHAS */}
+          <div className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-3xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Filtrar por Fecha:</span>
+              </span>
+              {isLoadingFiltered && (
+                <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 animate-spin" />
+                  <span>Cargando...</span>
+                </span>
+              )}
+            </div>
+
+            {/* Chips de fechas rápidas */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {(["HOY", "AYER", "SEMANA", "MES", "TODOS", "CUSTOM"] as const).map((r) => {
+                const labels: Record<string, string> = {
+                  HOY: "Hoy",
+                  AYER: "Ayer",
+                  SEMANA: "Últimos 7 días",
+                  MES: "Este Mes",
+                  TODOS: "Todo el Historial",
+                  CUSTOM: "Personalizado ▾",
+                };
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      setDateRangeType(r);
+                      if (r !== "CUSTOM") {
+                        handleApplyFilter(r);
+                      }
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 border",
+                      dateRangeType === r
+                        ? "bg-orange-500/20 border-orange-500 text-white font-black shadow-sm"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                    )}
+                  >
+                    {labels[r]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selector de fechas personalizado si r === CUSTOM */}
+            {dateRangeType === "CUSTOM" && (
+              <div className="p-2.5 bg-zinc-900 rounded-2xl border border-zinc-800 space-y-2 animate-in fade-in duration-150">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[10px] text-zinc-400 font-bold block mb-1">Desde:</label>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-full bg-black border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-zinc-400 font-bold block mb-1">Hasta:</label>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-full bg-black border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleApplyFilter("CUSTOM")}
+                  className="w-full py-2 rounded-xl bg-orange-500 text-white font-black text-xs active:scale-95 transition-transform"
+                >
+                  Aplicar Rango de Fechas
+                </button>
+              </div>
+            )}
+
+            {/* Filtro de Método de Pago y Buscador */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-zinc-850">
+              <div>
+                <select
+                  value={paymentMethodFilter}
+                  onChange={(e) => {
+                    const val = e.target.value as "TODOS" | "EFECTIVO" | "TRANSFERENCIA";
+                    setPaymentMethodFilter(val);
+                    handleApplyFilter(undefined, val);
+                  }}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs text-zinc-300 font-bold"
+                >
+                  <option value="TODOS">Todos los métodos</option>
+                  <option value="EFECTIVO">Solo Efectivo</option>
+                  <option value="TRANSFERENCIA">Solo Transferencia</option>
+                </select>
+              </div>
+
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchHistoryQuery}
+                  onChange={(e) => setSearchHistoryQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleApplyFilter();
+                  }}
+                  placeholder="Buscar comanda o mesa..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-white placeholder:text-zinc-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* RESUMEN ESTADÍSTICO DEL PERÍODO */}
+          <div className="p-4 bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-950 rounded-3xl border border-emerald-500/30 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 block">
+                  Resumen de Ventas del Período
+                </span>
+                <span className="text-2xl font-black text-white">
+                  {formatCurrency(filteredSummary.totalSales)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-black text-amber-400 block">
+                  {filteredSummary.ordersCount} comandas
+                </span>
+                <span className="text-[10px] text-zinc-400 font-bold">
+                  Prom: {formatCurrency(filteredSummary.averageTicket)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-zinc-800">
+              <div className="p-2.5 bg-black/50 rounded-xl border border-zinc-800 flex items-center justify-between">
+                <span className="text-zinc-400 font-bold flex items-center gap-1 text-[11px]">
+                  <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Efectivo:</span>
+                </span>
+                <span className="font-black text-emerald-400">
+                  {formatCurrency(filteredSummary.totalCash)}
+                </span>
+              </div>
+              <div className="p-2.5 bg-black/50 rounded-xl border border-zinc-800 flex items-center justify-between">
+                <span className="text-zinc-400 font-bold flex items-center gap-1 text-[11px]">
+                  <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Transf:</span>
+                </span>
+                <span className="font-black text-cyan-400">
+                  {formatCurrency(filteredSummary.totalTransfer)}
+                </span>
+              </div>
+            </div>
+
+            {/* Platos más vendidos en este período */}
+            {filteredSummary.topProducts.length > 0 && (
+              <div className="pt-2 border-t border-zinc-800/80 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                  Platos más vendidos en este filtro:
+                </span>
+                <div className="space-y-1 text-xs">
+                  {filteredSummary.topProducts.slice(0, 4).map((p) => (
+                    <div key={p.name} className="flex justify-between text-zinc-300">
+                      <span className="line-clamp-1">
+                        <strong className="text-orange-400">{p.quantity}x</strong> {p.name}
+                      </span>
+                      <span className="font-bold text-zinc-400">{formatCurrency(p.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* LISTA SEGÚN SUB-TAB: COMANDAS vs CIERRES */}
+          {historySubTab === "ORDENES" && (
+            <div className="space-y-2.5">
+              {filteredOrders.length === 0 ? (
+                <div className="py-12 text-center bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6">
+                  <Receipt className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
+                  <h3 className="font-bold text-zinc-300 text-sm">
+                    Sin comandas en este período
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Intenta cambiar las fechas o los filtros de búsqueda.
+                  </p>
+                </div>
+              ) : (
+                filteredOrders.map((order) => {
+                  const paidTime = order.paidAt
+                    ? new Date(order.paidAt).toLocaleTimeString("es-EC", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "";
+                  const paidDate = order.paidAt
+                    ? new Date(order.paidAt).toLocaleDateString("es-EC", {
+                        day: "numeric",
+                        month: "short",
+                      })
+                    : "";
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-black text-sm text-white">
+                              {order.customerName || order.tableNumber}
+                            </h4>
+                            <span className="text-[11px] font-bold text-orange-400">
+                              #{order.orderNumber}
+                            </span>
+                            {order.closure && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400">
+                                Cierre #{order.closure.closureNumber}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-bold text-zinc-500">
+                            {paidDate} • {paidTime}
+                          </span>
+                        </div>
+                        <span className="text-base font-black text-emerald-400">
+                          {formatCurrency(order.total)}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-zinc-400 bg-zinc-900/80 p-2.5 rounded-xl space-y-1">
+                        {order.items.map((it) => (
+                          <div key={it.id} className="flex justify-between">
+                            <span>
+                              {it.quantity}x {it.productName}
+                              {it.accompaniment && (
+                                <span className="text-zinc-500"> ({it.accompaniment})</span>
+                              )}
+                            </span>
+                            <span className="font-bold text-zinc-300">
+                              {formatCurrency(it.unitPrice * it.quantity)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-1">
+                        <span className="flex items-center gap-1 font-bold">
+                          {order.payment?.method === "EFECTIVO" ? (
+                            <>
+                              <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Efectivo</span>
+                            </>
+                          ) : (
+                            <>
+                              <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>Transferencia</span>
+                            </>
+                          )}
+                        </span>
+
+                        {order.payment?.proofImage && (
+                          <button
+                            type="button"
+                            onClick={() => setViewingProof(order.payment?.proofImage || null)}
+                            className="px-2 py-0.5 rounded-lg bg-cyan-950/60 border border-cyan-700/50 text-cyan-300 font-bold text-[10px] flex items-center gap-1 active:scale-95"
+                          >
+                            <ImageIcon className="w-3 h-3" />
+                            <span>Ver Comprobante</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* LISTA DE CIERRES OFICIALES */}
+          {historySubTab === "CIERRES" && (
+            <div className="space-y-3">
+              {filteredClosures.length === 0 ? (
+                <div className="py-12 text-center bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6">
+                  <Lock className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
+                  <h3 className="font-bold text-zinc-300 text-sm">
+                    Sin cierres de ventas en este período
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Los cierres oficiales de turno aparecerán registrados aquí.
+                  </p>
+                </div>
+              ) : (
+                filteredClosures.map((closure) => {
+                  let dishesCount = 0;
+                  try {
+                    const parsed = JSON.parse(closure.itemsSummary || "[]");
+                    dishesCount = parsed.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0);
+                  } catch {}
+
+                  return (
+                    <div
+                      key={closure.id}
+                      className="p-4 bg-zinc-950 border border-zinc-800 hover:border-orange-500/40 rounded-3xl space-y-3 shadow-lg transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 text-white font-black text-xs flex items-center justify-center shadow-md shrink-0">
+                            #{closure.closureNumber}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-white text-sm">
+                              Cierre de Ventas #{closure.closureNumber}
+                            </h4>
+                            <span className="text-[11px] text-zinc-400 font-semibold block mt-0.5">
+                              {new Date(closure.closedAt).toLocaleDateString("es-EC", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}{" "}
+                              a las{" "}
+                              {new Date(closure.closedAt).toLocaleTimeString("es-EC", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-lg font-black text-amber-400 block">
+                            {formatCurrency(closure.totalSales)}
+                          </span>
+                          <span className="text-[10px] font-bold text-zinc-500">
+                            {closure.ordersCount} comandas
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Resumen de efectivo vs transferencia */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-850 flex items-center justify-between">
+                          <span className="text-zinc-400 font-bold flex items-center gap-1">
+                            <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Efectivo:</span>
+                          </span>
+                          <span className="font-black text-emerald-400">
+                            {formatCurrency(closure.totalCash)}
+                          </span>
+                        </div>
+                        <div className="p-2.5 bg-zinc-900 rounded-xl border border-zinc-850 flex items-center justify-between">
+                          <span className="text-zinc-400 font-bold flex items-center gap-1">
+                            <QrCode className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>Transferencia:</span>
+                          </span>
+                          <span className="font-black text-cyan-400">
+                            {formatCurrency(closure.totalTransfer)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {closure.notes && (
+                        <p className="text-xs text-zinc-300 italic bg-zinc-900/80 p-2.5 rounded-xl border border-zinc-850">
+                          <span className="font-bold text-zinc-400">Nota:</span> {closure.notes}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClosure(closure)}
+                        className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-amber-400 text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Utensils className="w-3.5 h-3.5" />
+                        <span>Ver Platos Vendidos en este Cierre ({dishesCount} platos)</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* MANTENIMIENTO / REINICIO DE PRUEBAS */}
+          <div className="mt-6 p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-2xl space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
@@ -609,7 +1376,7 @@ export function AdminDashboardView({
               </div>
             </div>
             <p className="text-[11px] text-zinc-400 leading-relaxed">
-              ¿Hiciste pruebas y quieres empezar con ventas en $0.00? Este botón borra los pedidos de prueba sin alterar tus platos ni guarniciones.
+              ¿Hiciste pruebas y quieres empezar con ventas en $0.00? Este botón borra los pedidos y cierres de prueba sin alterar tus platos ni guarniciones del menú.
             </p>
 
             {showResetConfirm ? (
@@ -632,7 +1399,11 @@ export function AdminDashboardView({
                     onClick={handleResetSales}
                     className="flex-1 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5"
                   >
-                    {isResetting ? <Sparkles className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {isResetting ? (
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                     <span>{isResetting ? "Limpiando..." : "Sí, Limpiar Todo"}</span>
                   </button>
                 </div>
@@ -648,95 +1419,6 @@ export function AdminDashboardView({
               </button>
             )}
           </div>
-
-          {(!stats?.todayOrders || stats.todayOrders.length === 0) ? (
-            <div className="py-16 text-center bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6">
-              <Receipt className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
-              <h3 className="font-bold text-zinc-300 text-sm">
-                Sin pedidos cobrados hoy
-              </h3>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Los pedidos cobrados en caja se archivarán aquí.
-              </p>
-            </div>
-          ) : (
-            stats.todayOrders.map((order) => {
-              const paidTime = order.paidAt
-                ? new Date(order.paidAt).toLocaleTimeString("es-EC", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "";
-
-              return (
-                <div
-                  key={order.id}
-                  className="p-3.5 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-black text-sm text-white">
-                        {order.tableNumber} (Comanda #{order.orderNumber})
-                      </h4>
-                      <span className="text-[11px] font-bold text-zinc-500">
-                        Cobrado a las {paidTime}
-                      </span>
-                    </div>
-                    <span className="text-base font-black text-emerald-400">
-                      {formatCurrency(order.total)}
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-zinc-400 bg-zinc-900/80 p-2.5 rounded-xl space-y-1">
-                    {order.items.map((it) => (
-                      <div key={it.id} className="flex justify-between">
-                        <span>
-                          {it.quantity}x {it.productName}
-                          {it.accompaniment && (
-                            <span className="text-zinc-500"> ({it.accompaniment})</span>
-                          )}
-                        </span>
-                        <span className="font-bold text-zinc-300">
-                          {formatCurrency(it.unitPrice * it.quantity)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-1">
-                    <span className="flex items-center gap-1 font-bold">
-                      {order.payment?.method === "EFECTIVO" ? (
-                        <>
-                          <Banknote className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Efectivo</span>
-                        </>
-                      ) : (
-                        <>
-                          <QrCode className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Transferencia</span>
-                        </>
-                      )}
-                    </span>
-
-                    {order.payment?.proofImage && (
-                      <button
-                        type="button"
-                        onClick={() => setViewingProof(order.payment?.proofImage || null)}
-                        className="px-2 py-0.5 rounded-lg bg-cyan-950/60 border border-cyan-700/50 text-cyan-300 font-bold text-[10px] flex items-center gap-1 active:scale-95"
-                      >
-                        <ImageIcon className="w-3 h-3" />
-                        <span>Ver Comprobante</span>
-                      </button>
-                    )}
-
-                    {order.payment?.changeGiven ? (
-                      <span>Vuelto: {formatCurrency(order.payment.changeGiven)}</span>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })
-          )}
         </div>
       )}
 
@@ -1396,6 +2078,233 @@ export function AdminDashboardView({
               >
                 {isDeletingProd ? <Sparkles className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 <span>{isDeletingProd ? "Eliminando..." : "Sí, Eliminar"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CIERRE DE VENTAS DE TURNO */}
+      {isCloseShiftModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+            {/* Cabecera */}
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-base">Cierre de Ventas / Turno</h3>
+                  <span className="text-xs text-zinc-400">Finalizar turno actual y cuadrar caja</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCloseShiftModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center border border-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-4 overflow-y-auto space-y-4 flex-1">
+              {/* Total Destacado */}
+              <div className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 text-center">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">
+                  Total a Cerrar en este Turno
+                </span>
+                <span className="text-3xl font-black text-amber-400">
+                  {formatCurrency(currentShift.totalSales)}
+                </span>
+                <span className="text-xs text-zinc-400 block mt-1 font-bold">
+                  {currentShift.ordersCount} comandas cobradas
+                </span>
+              </div>
+
+              {/* Desglose de Pago */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-3 bg-black/60 border border-zinc-800 rounded-xl">
+                  <span className="text-zinc-400 font-bold block text-[10px]">Efectivo en Caja</span>
+                  <span className="text-base font-black text-emerald-400">
+                    {formatCurrency(currentShift.totalCash)}
+                  </span>
+                </div>
+                <div className="p-3 bg-black/60 border border-zinc-800 rounded-xl">
+                  <span className="text-zinc-400 font-bold block text-[10px]">Transferencias / Deuna</span>
+                  <span className="text-base font-black text-cyan-400">
+                    {formatCurrency(currentShift.totalTransfer)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Lista de Platos Vendidos en este turno */}
+              <div className="space-y-2">
+                <span className="text-xs font-black uppercase tracking-wider text-orange-400 block">
+                  Platos y Bebidas Vendidos en este Turno:
+                </span>
+                <div className="p-3 bg-zinc-900 rounded-2xl border border-zinc-800 space-y-2 max-h-48 overflow-y-auto">
+                  {currentShift.topProducts.map((p) => (
+                    <div key={p.name} className="flex justify-between items-center text-xs text-zinc-300">
+                      <span>
+                        <strong className="text-orange-400">{p.quantity}x</strong> {p.name}
+                      </span>
+                      <span className="font-black text-zinc-200">{formatCurrency(p.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <label className="text-xs font-bold text-zinc-300 block mb-1.5">
+                  Observaciones del Cierre (Opcional):
+                </label>
+                <input
+                  type="text"
+                  value={closureNotes}
+                  onChange={(e) => setClosureNotes(e.target.value)}
+                  placeholder="Ej. Cuadre exacto, turno de la noche..."
+                  className="w-full bg-black border border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-hidden focus:border-red-500"
+                />
+              </div>
+
+              {/* Aviso explicativo */}
+              <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl text-[11px] text-zinc-400 leading-relaxed">
+                <p>
+                  ℹ️ Al confirmar el cierre, estas {currentShift.ordersCount} comandas se archivarán en el historial oficial de cierres. El panel de venta actual se reiniciará a <strong>$0.00</strong> listo para el siguiente turno.
+                </p>
+              </div>
+            </div>
+
+            {/* Botones de Acción */}
+            <div className="p-4 border-t border-zinc-800 bg-zinc-950 flex gap-2">
+              <button
+                type="button"
+                disabled={isClosingShift}
+                onClick={() => setIsCloseShiftModalOpen(false)}
+                className="flex-1 py-3 rounded-2xl bg-zinc-900 text-zinc-300 text-xs font-bold border border-zinc-800 active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isClosingShift}
+                onClick={handleExecuteCloseShift}
+                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 text-white font-black text-xs shadow-xl shadow-rose-600/30 flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+              >
+                {isClosingShift ? (
+                  <Sparkles className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
+                <span>{isClosingShift ? "Cerrando..." : "Confirmar Cierre de Ventas"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA VER DETALLE DE UN CIERRE PASADO */}
+      {selectedClosure && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block">
+                  Detalle Oficial
+                </span>
+                <h3 className="font-black text-white text-base">
+                  Cierre de Ventas #{selectedClosure.closureNumber}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedClosure(null)}
+                className="w-8 h-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center border border-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-4 flex-1">
+              {/* Resumen */}
+              <div className="p-4 bg-zinc-900 rounded-2xl border border-zinc-800 text-center">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block mb-1">
+                  Monto Total del Cierre
+                </span>
+                <span className="text-3xl font-black text-amber-400">
+                  {formatCurrency(selectedClosure.totalSales)}
+                </span>
+                <div className="mt-2 text-xs text-zinc-400 flex items-center justify-center gap-3">
+                  <span>💵 Efectivo: <strong>{formatCurrency(selectedClosure.totalCash)}</strong></span>
+                  <span>📱 Transf: <strong>{formatCurrency(selectedClosure.totalTransfer)}</strong></span>
+                </div>
+              </div>
+
+              {/* Fechas */}
+              <div className="p-3 bg-black/40 border border-zinc-800 rounded-xl space-y-1 text-xs text-zinc-300">
+                <p>
+                  <strong className="text-zinc-400">Fecha de Cierre:</strong>{" "}
+                  {new Date(selectedClosure.closedAt).toLocaleDateString("es-EC", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}{" "}
+                  a las{" "}
+                  {new Date(selectedClosure.closedAt).toLocaleTimeString("es-EC", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+                <p>
+                  <strong className="text-zinc-400">Comandas cobradas:</strong> {selectedClosure.ordersCount} pedidos
+                </p>
+                {selectedClosure.notes && (
+                  <p className="pt-1 text-amber-300 italic">
+                    <strong className="text-zinc-400">Observación:</strong> {selectedClosure.notes}
+                  </p>
+                )}
+              </div>
+
+              {/* Platos vendidos */}
+              <div className="space-y-2">
+                <span className="text-xs font-black uppercase tracking-wider text-orange-400 block">
+                  Platos y Bebidas Vendidos en este Cierre:
+                </span>
+                <div className="p-3 bg-zinc-900 rounded-2xl border border-zinc-800 space-y-2 max-h-56 overflow-y-auto">
+                  {(() => {
+                    let itemsList: any[] = [];
+                    try {
+                      itemsList = JSON.parse(selectedClosure.itemsSummary || "[]");
+                    } catch {}
+
+                    if (itemsList.length === 0) {
+                      return <p className="text-xs text-zinc-500 text-center py-2">Sin desglose de platos disponible</p>;
+                    }
+
+                    return itemsList.map((p: any) => (
+                      <div key={p.name} className="flex justify-between items-center text-xs text-zinc-300">
+                        <span>
+                          <strong className="text-orange-400">{p.quantity}x</strong> {p.name}
+                        </span>
+                        <span className="font-black text-zinc-200">{formatCurrency(p.revenue)}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-zinc-800 bg-zinc-950">
+              <button
+                type="button"
+                onClick={() => setSelectedClosure(null)}
+                className="w-full py-3 rounded-2xl bg-zinc-900 text-zinc-300 text-xs font-bold border border-zinc-800 active:scale-95"
+              >
+                Cerrar Detalle
               </button>
             </div>
           </div>
